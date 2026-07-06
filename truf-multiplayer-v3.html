@@ -7139,9 +7139,37 @@ const Voice = (function () {
 // ============================================================
 // ============================================================
 // AUTH — login / register / admin
-// Admin password: MAINKARTU2025
+// Admin credentials verified via RTDB rules hash-challenge.
+// Salt is public; hash lives in /config/adminHash (rules: .read false).
+// See docs/RINGKASAN-v4.3.3.md → "Admin auth via rules-challenge".
 // ============================================================
-const ADMIN_PASSWORD = 'MAINKARTU2025';
+const ADMIN_USERNAME = '__admin__';
+const ADMIN_SALT = 'mk-admin-salt-2026';
+
+async function sha256Hex(str) {
+  const buf = new TextEncoder().encode(str);
+  const digest = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(digest))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Verify admin password by writing a hash-challenge to RTDB.
+// Rules only allow the write if hash === root.child('config/adminHash').
+// Returns true on success, false on failure.
+async function verifyAdminPassword(password) {
+  try {
+    const hash = await sha256Hex(ADMIN_SALT + ':' + password);
+    const sessionId = 'c' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+    const fb = window.firebase;
+    await fb.set(fb.ref(fb.db, `adminChallenge/${sessionId}`), { hash, ts: fb.serverTimestamp() });
+    // Success — clean up challenge node (best-effort, ignore errors)
+    fb.remove(fb.ref(fb.db, `adminChallenge/${sessionId}`)).catch(() => {});
+    return true;
+  } catch (e) {
+    // PERMISSION_DENIED from rules = wrong password
+    return false;
+  }
+}
 
 function authSetError(msg) {
   const el = document.getElementById('authError');
@@ -7246,8 +7274,13 @@ async function doLogin() {
   const password = (document.getElementById('loginPassword').value || '').trim();
   authSetError('');
   if (!username || !password) { authSetError('Username dan password harus diisi'); return; }
-  // Admin shortcut
-  if (username === '__admin__' && password === ADMIN_PASSWORD) { showAdminView(); return; }
+  // Admin shortcut — password verified via RTDB rules challenge (no client secret)
+  if (username === ADMIN_USERNAME) {
+    const ok = await verifyAdminPassword(password);
+    if (ok) { showAdminView(); return; }
+    authSetError('Login gagal, belengnya! tanya Ivan nanti di cek loginmu');
+    return;
+  }
   const key = sanitizeKey(username.toLowerCase());
   try {
     const snap = await fb.get(fb.ref(fb.db, `accounts/${key}`));
