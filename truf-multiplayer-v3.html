@@ -5512,8 +5512,8 @@
     <div class="back-row"><button class="link-btn" id="roomBackToGameSelectBtn">← Ganti Game</button></div>
     <div class="room-header">
       <div class="subtitle">Kode Room</div>
-      <div class="room-code-display" id="roomCodeDisplay" title="Klik untuk salin">ABCD</div>
-      <div class="copy-hint">Klik kode untuk salin · Bagikan ke teman</div>
+      <div class="room-code-display" id="roomCodeDisplay" title="Klik untuk salin link room">ABCD</div>
+      <div class="copy-hint">Klik untuk salin link · Kirim ke teman untuk auto-join</div>
     </div>
 
     <!-- Voice chat controls (press to enable mic — no auto permission prompt) -->
@@ -9217,6 +9217,7 @@ async function handleJoinRoom() {
     if (!snap.exists()) {
       showLobbyStatus('Room tidak ditemukan', 'error');
       setBtnLoading('joinRoomBtn', false);
+      if (typeof routerClearRoomUrl === 'function') routerClearRoomUrl(currentGameType || null);
       return;
     }
     
@@ -9353,6 +9354,10 @@ function enterRoomView(code) {
   document.getElementById('lobbyView').classList.add('hidden');
   document.getElementById('roomView').classList.remove('hidden');
   document.getElementById('roomCodeDisplay').textContent = code;
+  // Sync URL to /<game>/<code> so it can be shared / bookmarked.
+  if (typeof routerSetRoomUrl === 'function') {
+    routerSetRoomUrl(currentGameType || 'truf', code);
+  }
   // Hide the fixed RANK + LOGOUT buttons (lobby-only) once inside a room.
   const _rankBtn = document.getElementById('lobbyRankBtn');
   if (_rankBtn) _rankBtn.style.display = 'none';
@@ -9965,6 +9970,10 @@ async function handleLeaveRoom() {
 }
 
 function handleForceLeaveRoom() {
+  // Drop the room code from the URL — back to /<game> lobby (or / if unknown).
+  if (typeof routerClearRoomUrl === 'function') {
+    routerClearRoomUrl(currentGameType || null);
+  }
   try { TurnReminder.reset(); } catch (e) {}
   try { RemiTurnTimer.reset(); } catch (e) {}
   if (roomUnsubscribe) {
@@ -18028,18 +18037,22 @@ function renderHand(handEl, absSeat, pos, room) {
 // UTILITIES
 // ============================================================
 function handleCopyRoomCode() {
+  // Prefer sharing the full URL so the friend can click and auto-join.
+  // Fall back to just the code if the URL doesn't include the room path.
   const code = document.getElementById('roomCodeDisplay').textContent;
-  navigator.clipboard.writeText(code).then(() => {
+  const roomMatch = (typeof routerRoomFromPath === 'function') ? routerRoomFromPath() : null;
+  const payload = roomMatch ? window.location.href : code;
+  navigator.clipboard.writeText(payload).then(() => {
     const hint = document.querySelector('.copy-hint');
     const orig = hint.textContent;
-    hint.textContent = '✓ Tersalin!';
+    hint.textContent = roomMatch ? '✓ Link tersalin! Kirim ke teman' : '✓ Kode tersalin!';
     hint.style.color = 'var(--green)';
     setTimeout(() => {
       hint.textContent = orig;
       hint.style.color = '';
-    }, 1500);
+    }, 2000);
   }).catch(() => {
-    alert('Kode room: ' + code);
+    alert(roomMatch ? ('Link room: ' + payload) : ('Kode room: ' + code));
   });
 }
 
@@ -18102,14 +18115,17 @@ window.addEventListener('beforeunload', (e) => {
 });
 
 // ============================================================
-// ROUTER — clean URLs per game (SPA-style)
+// ROUTER — clean URLs per game + shareable room links (SPA-style)
 // URL map:
-//   /         → home (auth or game select)
-//   /truf     → lobby Truf
-//   /cangkul  → lobby Cangkul
-//   /remi     → lobby Remi
-//   /tebak    → lobby Tebak
-// Admin & in-room views stay URL-less (URL sticks at their entry point).
+//   /               → home (auth or game select)
+//   /truf           → lobby Truf
+//   /cangkul        → lobby Cangkul
+//   /remi           → lobby Remi
+//   /tebak          → lobby Tebak
+//   /truf/ABC123    → room ABC123 (auto-join on load)
+//   /remi/XYZ456    → room XYZ456
+//   ...same for cangkul, tebak
+// Admin view stays URL-less (URL sticks at its entry point).
 // ============================================================
 const ROUTER_GAMES = ['truf', 'cangkul', 'remi', 'tebak'];
 
@@ -18121,15 +18137,53 @@ function routerGameFromPath(path) {
   const m = (path || routerCurrentPath()).match(/^\/(truf|cangkul|remi|tebak)$/);
   return m ? m[1] : null;
 }
+function routerRoomFromPath(path) {
+  const m = (path || routerCurrentPath()).match(/^\/(truf|cangkul|remi|tebak)\/([A-Z0-9]{4,6})$/i);
+  return m ? { game: m[1].toLowerCase(), code: m[2].toUpperCase() } : null;
+}
 // Navigate to a route (push a new entry). Skip pushState if URL already matches.
 function routerNavigate(path) {
   if (routerCurrentPath() === path) return;
   history.pushState({ route: path }, '', path);
 }
+// Called when entering a room — put the room code in the URL for sharing.
+function routerSetRoomUrl(gameType, code) {
+  if (!ROUTER_GAMES.includes(gameType) || !code) return;
+  const target = '/' + gameType + '/' + code.toUpperCase();
+  if (routerCurrentPath() !== target) {
+    history.replaceState({ route: target }, '', target);
+  }
+}
+// Called when leaving a room — drop the code, keep the game lobby URL.
+function routerClearRoomUrl(gameType) {
+  const target = ROUTER_GAMES.includes(gameType) ? '/' + gameType : '/';
+  if (routerCurrentPath() !== target) {
+    history.replaceState({ route: target }, '', target);
+  }
+}
+// Guard so auto-join fires at most once per fresh page load.
+let _routerAutoJoined = false;
+async function routerAutoJoinIfNeeded(roomMatch) {
+  if (_routerAutoJoined) return;
+  _routerAutoJoined = true;
+  const codeInput = document.getElementById('roomCodeInput');
+  if (codeInput) codeInput.value = roomMatch.code;
+  // Wait a tick so the lobby is fully rendered before triggering join.
+  setTimeout(() => {
+    try { handleJoinRoom(); } catch (e) { console.error('router auto-join:', e); }
+  }, 50);
+}
 // Apply a URL to the visible view (used on initial load + popstate).
 // Assumes user is already authenticated. If not, showAuthView() runs.
 function routerApplyCurrent() {
   const path = routerCurrentPath();
+  const roomMatch = routerRoomFromPath(path);
+  if (roomMatch) {
+    // Show the correct lobby, then auto-join the room in the URL.
+    showLobbyForGame(roomMatch.game, { skipUrlSync: true });
+    routerAutoJoinIfNeeded(roomMatch);
+    return;
+  }
   const game = routerGameFromPath(path);
   if (game) {
     showLobbyForGame(game, { skipUrlSync: true });
@@ -18150,9 +18204,19 @@ function clearGameHistoryGuard() {
   _gameHistoryPushed = false;
 }
 window.addEventListener('popstate', (e) => {
-  if (isInActiveGame()) {
-    if (!confirm('Permainan sedang berlangsung. Yakin ingin keluar?')) {
-      history.pushState({ inGame: true }, '');
+  const inActive = isInActiveGame();
+  const inRoom = !!currentRoom;
+  if (inActive || inRoom) {
+    const msg = inActive
+      ? 'Permainan sedang berlangsung. Yakin ingin keluar?'
+      : 'Yakin keluar dari room?';
+    if (!confirm(msg)) {
+      // Restore the room URL so the address bar matches what user still sees.
+      const target = (currentGameType && currentRoom)
+        ? '/' + currentGameType + '/' + currentRoom
+        : null;
+      if (target) history.pushState({ inGame: true }, '', target);
+      else history.pushState({ inGame: true }, '');
       return;
     }
     _gameHistoryPushed = false;
