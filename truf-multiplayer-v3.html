@@ -7318,14 +7318,19 @@ function finishLogin({ name, username, uid }) {
     ni.style.cursor = 'not-allowed';
     ni.title = 'Username otomatis dari akun login Anda';
   }
-  // Hide auth, show game select (tagline hidden on the game-select page)
+  // Hide auth, show either the deep-linked lobby or the game-select page.
   document.getElementById('authView').classList.add('hidden');
-  document.getElementById('gameSelectView').classList.remove('hidden');
   const tag = document.getElementById('appTagline');
   if (tag) tag.style.display = 'none';
   // Show the fixed logout button (no rank btn on this screen).
   const _logoutBtn = document.getElementById('logoutBtn');
   if (_logoutBtn) { _logoutBtn.style.display = ''; _logoutBtn.classList.remove('with-rank'); }
+  // Honour deep-link (/truf, /remi, etc.) if user landed on one before login.
+  if (typeof routerApplyCurrent === 'function') {
+    routerApplyCurrent();
+  } else {
+    document.getElementById('gameSelectView').classList.remove('hidden');
+  }
 }
 
 function doLogout() {
@@ -8854,7 +8859,10 @@ function setGameType(g) {
     if (el) el.style.display = isRemi ? '' : 'none';
   });
 }
-function showGameSelect() {
+function showGameSelect(opts) {
+  if (!opts || !opts.skipUrlSync) {
+    if (typeof routerNavigate === 'function') routerNavigate('/');
+  }
   setLayoutFloatingVisible(true);
   document.getElementById('gameSelectView').classList.remove('hidden');
   document.getElementById('lobbyView').classList.add('hidden');
@@ -8872,7 +8880,12 @@ function showGameSelect() {
   // Same lobby music as the in-room waiting screen.
   try { Sound.playBgm('lobby'); } catch (e) {}
 }
-function showLobbyForGame(g) {
+function showLobbyForGame(g, opts) {
+  if (!opts || !opts.skipUrlSync) {
+    if (typeof routerNavigate === 'function' && ROUTER_GAMES.includes(g)) {
+      routerNavigate('/' + g);
+    }
+  }
   setLayoutFloatingVisible(true);
   setGameType(g);
   document.getElementById('gameSelectView').classList.add('hidden');
@@ -18088,6 +18101,43 @@ window.addEventListener('beforeunload', (e) => {
   }
 });
 
+// ============================================================
+// ROUTER — clean URLs per game (SPA-style)
+// URL map:
+//   /         → home (auth or game select)
+//   /truf     → lobby Truf
+//   /cangkul  → lobby Cangkul
+//   /remi     → lobby Remi
+//   /tebak    → lobby Tebak
+// Admin & in-room views stay URL-less (URL sticks at their entry point).
+// ============================================================
+const ROUTER_GAMES = ['truf', 'cangkul', 'remi', 'tebak'];
+
+function routerCurrentPath() {
+  const p = (location.pathname || '/').replace(/\/+$/, '') || '/';
+  return p;
+}
+function routerGameFromPath(path) {
+  const m = (path || routerCurrentPath()).match(/^\/(truf|cangkul|remi|tebak)$/);
+  return m ? m[1] : null;
+}
+// Navigate to a route (push a new entry). Skip pushState if URL already matches.
+function routerNavigate(path) {
+  if (routerCurrentPath() === path) return;
+  history.pushState({ route: path }, '', path);
+}
+// Apply a URL to the visible view (used on initial load + popstate).
+// Assumes user is already authenticated. If not, showAuthView() runs.
+function routerApplyCurrent() {
+  const path = routerCurrentPath();
+  const game = routerGameFromPath(path);
+  if (game) {
+    showLobbyForGame(game, { skipUrlSync: true });
+  } else {
+    showGameSelect({ skipUrlSync: true });
+  }
+}
+
 // Mobile back button guard — push a dummy history entry when entering a game
 // so pressing back triggers a confirmation instead of navigating away.
 let _gameHistoryPushed = false;
@@ -18107,9 +18157,12 @@ window.addEventListener('popstate', (e) => {
     }
     _gameHistoryPushed = false;
     window.location.reload();
-  } else {
-    _gameHistoryPushed = false;
+    return;
   }
+  _gameHistoryPushed = false;
+  // Sync visible view to the URL the user just navigated to.
+  // Only when logged in — otherwise the auth screen is already showing.
+  if (myUid) routerApplyCurrent();
 });
 
 // ============================================================

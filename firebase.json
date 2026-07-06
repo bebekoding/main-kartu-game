@@ -13,6 +13,10 @@
       "*.md"
     ],
     "rewrites": [
+      { "source": "/truf", "destination": "/truf-multiplayer-v3.html" },
+      { "source": "/cangkul", "destination": "/truf-multiplayer-v3.html" },
+      { "source": "/remi", "destination": "/truf-multiplayer-v3.html" },
+      { "source": "/tebak", "destination": "/truf-multiplayer-v3.html" },
       { "source": "/", "destination": "/truf-multiplayer-v3.html" }
     ],
     "redirects": [
