@@ -1,0 +1,2460 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TRUF — Card Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --felt-dark: #0a2f23;
+    --felt: #11402f;
+    --felt-light: #1a5a42;
+    --gold: #d4a84b;
+    --gold-bright: #f0c668;
+    --cream: #f4ead5;
+    --ivory: #faf6ec;
+    --ink: #1a1612;
+    --red: #b3252b;
+    --red-deep: #8a1b20;
+    --shadow: rgba(0,0,0,0.4);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Cormorant Garamond', serif;
+    color: var(--cream);
+    background: radial-gradient(ellipse at center, var(--felt-light) 0%, var(--felt) 40%, var(--felt-dark) 100%);
+    user-select: none;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(212,168,75,0.08) 0%, transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(212,168,75,0.06) 0%, transparent 40%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.85' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.12 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+    pointer-events: none;
+    opacity: 0.5;
+    z-index: 1;
+    mix-blend-mode: overlay;
+  }
+  
+  #app { position: relative; z-index: 2; height: 100vh; display: flex; flex-direction: column; }
+  
+  /* ============ HEADER ============ */
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 24px;
+    border-bottom: 1px solid rgba(212,168,75,0.2);
+    background: rgba(10,30,23,0.4);
+    backdrop-filter: blur(8px);
+  }
+  .logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 700;
+    font-style: italic;
+    font-size: 28px;
+    letter-spacing: 0.3em;
+    color: var(--gold-bright);
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  }
+  .topbar-info {
+    display: flex;
+    gap: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--cream);
+  }
+  .topbar-info span b { color: var(--gold-bright); font-weight: 700; }
+  
+  /* ============ TABLE LAYOUT ============ */
+  .table {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 180px 1fr 180px;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      ". north ."
+      "west center east"
+      "south south south";
+    gap: 8px;
+    padding: 12px;
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+  }
+  
+  .seat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+  }
+  .seat-north { grid-area: north; }
+  .seat-south { grid-area: south; justify-content: flex-end; }
+  .seat-west { grid-area: west; justify-content: center; min-height: 0; }
+  .seat-east { grid-area: east; justify-content: center; min-height: 0; }
+  .seat-center { grid-area: center; align-items: center; justify-content: center; display: flex; overflow: hidden; }
+  
+  .player-card {
+    background: linear-gradient(135deg, rgba(244,234,213,0.06), rgba(244,234,213,0.02));
+    border: 1px solid rgba(212,168,75,0.3);
+    border-radius: 10px;
+    padding: 8px 14px;
+    min-width: 140px;
+    text-align: center;
+    backdrop-filter: blur(6px);
+    transition: all 0.3s;
+  }
+  .player-card.active {
+    border-color: var(--gold-bright);
+    box-shadow: 0 0 24px rgba(240,198,104,0.4), inset 0 0 12px rgba(240,198,104,0.1);
+  }
+  .player-card.winner-glow {
+    animation: winnerPulse 1.2s ease;
+  }
+  @keyframes winnerPulse {
+    0%, 100% { box-shadow: 0 0 0 rgba(240,198,104,0); }
+    50% { box-shadow: 0 0 32px rgba(240,198,104,0.7); }
+  }
+  .player-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 20px;
+    color: var(--gold-bright);
+    font-weight: 600;
+  }
+  .player-stats {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--cream);
+    margin-top: 2px;
+  }
+  .player-stats .stat b { color: var(--gold-bright); }
+  
+  /* ============ HAND (CARDS) ============ */
+  .hand {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: nowrap;
+  }
+  .hand-south {
+    gap: 0;
+    padding: 14px 8px 8px 8px;
+    perspective: 800px;
+    max-width: 100%;
+    min-height: 110px;
+  }
+  .hand-other {
+    gap: 0;
+  }
+  .hand-side {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    max-width: 100%;
+    justify-content: center;
+    align-items: center;
+  }
+  .hand-side .card {
+    margin-left: -42px;
+    margin-top: 0;
+    width: 50px;
+    height: 70px;
+  }
+  .hand-side .card:first-child { margin-left: 0; }
+  
+  /* ============ CARD STYLES ============ */
+  .card {
+    width: 62px;
+    height: 88px;
+    border-radius: 5px;
+    background: var(--ivory);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+    position: relative;
+    margin-left: -42px;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s, margin 0.25s;
+    cursor: default;
+    border: 1px solid rgba(0,0,0,0.2);
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .card:first-child { margin-left: 0; }
+  .hand-south .card { width: 74px; height: 104px; margin-left: -46px; border-radius: 6px; }
+  .hand-south .card.playable {
+    cursor: pointer;
+  }
+  .hand-south .card.playable:hover {
+    transform: translateY(-22px) scale(1.08);
+    box-shadow: 0 14px 28px rgba(0,0,0,0.5), 0 0 18px rgba(240,198,104,0.6);
+    z-index: 10;
+  }
+  .hand-south .card.unplayable {
+    opacity: 0.5;
+    filter: grayscale(0.4);
+  }
+  .hand-south .card.selected-for-bid {
+    transform: translateY(-22px);
+    box-shadow: 0 14px 28px rgba(0,0,0,0.5), 0 0 20px rgba(240,198,104,0.8);
+  }
+  /* Selected highlight for bid dialog cards: golden border + lift + glow */
+  .card.selected-for-bid {
+    outline: 3px solid var(--gold-bright);
+    outline-offset: 2px;
+    transform: translateY(-12px) scale(1.05);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.5), 0 0 22px rgba(240,198,104,0.85);
+    position: relative;
+    z-index: 5;
+  }
+  .card.selected-for-bid::after {
+    content: '✓';
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold), var(--gold-bright));
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    border: 1px solid rgba(0,0,0,0.2);
+    z-index: 6;
+  }
+  
+  .card-content {
+    position: absolute;
+    inset: 0;
+    padding: 4px 5px;
+  }
+  /* Top-left corner: rank + suit pip stacked, prominent so visible even when card is overlapped */
+  .card-tl {
+    position: absolute;
+    top: 3px;
+    left: 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 0.95;
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 700;
+  }
+  .card-tl .r {
+    font-size: 16px;
+    letter-spacing: -0.02em;
+  }
+  .card-tl .s {
+    font-size: 13px;
+    margin-top: 1px;
+  }
+  /* For south hand (larger cards), corner labels are bigger */
+  .hand-south .card-tl .r { font-size: 19px; }
+  .hand-south .card-tl .s { font-size: 16px; }
+  
+  /* Bottom-right corner: mirrored */
+  .card-br {
+    position: absolute;
+    bottom: 3px;
+    right: 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 0.95;
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 700;
+    transform: rotate(180deg);
+  }
+  .card-br .r { font-size: 16px; letter-spacing: -0.02em; }
+  .card-br .s { font-size: 13px; margin-top: 1px; }
+  .hand-south .card-br .r { font-size: 19px; }
+  .hand-south .card-br .s { font-size: 16px; }
+  
+  /* Center suit ornament */
+  .card-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 28px;
+    opacity: 0.92;
+  }
+  .hand-south .card-center { font-size: 36px; }
+  
+  /* Face card flourish for J/Q/K/A */
+  .card.face-card .card-center {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 32px;
+    line-height: 1;
+  }
+  .hand-south .card.face-card .card-center { font-size: 40px; }
+  
+  .card.red { color: var(--red); }
+  .card.black { color: var(--ink); }
+  
+  /* ============ BID CARDS ON TABLE ============ */
+  .bid-zone {
+    position: absolute;
+    display: flex;
+    gap: 4px;
+    transition: all 0.5s cubic-bezier(0.34, 1.4, 0.64, 1);
+  }
+  .bid-zone.pos-south { bottom: -50px; left: 50%; transform: translateX(-50%); }
+  .bid-zone.pos-north { top: -50px; left: 50%; transform: translateX(-50%); }
+  .bid-zone.pos-west { left: -50px; top: 50%; transform: translateY(-50%); }
+  .bid-zone.pos-east { right: -50px; top: 50%; transform: translateY(-50%); }
+  .bid-zone .card { margin-left: -20px; }
+  .bid-zone .card:first-child { margin-left: 0; }
+  
+  /* card flip animation */
+  .card.flipping {
+    animation: cardFlip 0.6s ease-in-out forwards;
+  }
+  @keyframes cardFlip {
+    0% { transform: rotateY(0deg); }
+    50% { transform: rotateY(90deg); }
+    100% { transform: rotateY(0deg); }
+  }
+  .bid-label {
+    position: absolute;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--gold);
+    text-align: center;
+    white-space: nowrap;
+    background: rgba(10,30,23,0.85);
+    padding: 3px 8px;
+    border-radius: 4px;
+    backdrop-filter: blur(4px);
+    z-index: 5;
+  }
+  .bid-zone.pos-south .bid-label { top: -16px; left: 50%; transform: translateX(-50%); }
+  .bid-zone.pos-north .bid-label { bottom: -20px; top: auto; left: 50%; transform: translateX(-50%); }
+  .bid-zone.pos-west .bid-label { top: -16px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+  .bid-zone.pos-east .bid-label { top: -16px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+  
+  /* Confirm buttons that float over each seat during reveal */
+  .confirm-btn {
+    margin-top: 6px;
+    padding: 8px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--gold);
+    background: rgba(212,168,75,0.15);
+    color: var(--gold-bright);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+  }
+  .confirm-btn:hover {
+    background: var(--gold);
+    color: var(--ink);
+  }
+  .confirm-btn.confirmed {
+    background: rgba(111,207,151,0.2);
+    border-color: #6fcf97;
+    color: #6fcf97;
+    cursor: default;
+    pointer-events: none;
+  }
+  .confirm-btn.confirmed::before { content: '✓ '; }
+  .confirm-btn[disabled] {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  
+  /* card back */
+  .card-back {
+    background:
+      repeating-linear-gradient(45deg, rgba(212,168,75,0.15) 0 2px, transparent 2px 6px),
+      linear-gradient(135deg, #4a1a1f, #6b252c 50%, #4a1a1f);
+    border: 2px solid var(--gold);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.5), inset 0 0 0 2px rgba(244,234,213,0.1);
+  }
+  .card-back::before {
+    content: '✦';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    color: var(--gold);
+    text-shadow: 0 0 8px rgba(0,0,0,0.5);
+  }
+  
+  /* ============ CENTER PLAY AREA ============ */
+  .play-area {
+    width: 360px;
+    height: 280px;
+    border: 1px dashed rgba(212,168,75,0.3);
+    border-radius: 18px;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0.15), transparent);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .play-area-info {
+    text-align: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: rgba(244,234,213,0.6);
+    font-size: 16px;
+    padding: 20px;
+  }
+  .played-card {
+    position: absolute;
+    transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s;
+    animation: throwIn 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    transform-style: preserve-3d;
+  }
+  @keyframes throwIn {
+    0% {
+      opacity: 0;
+      filter: blur(2px);
+    }
+    60% {
+      opacity: 1;
+      filter: blur(0);
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+  .played-card.pos-south { bottom: 12px; left: 50%; }
+  .played-card.pos-south { animation-name: throwInFromSouth; }
+  .played-card.pos-north { top: 12px; left: 50%; animation-name: throwInFromNorth; }
+  .played-card.pos-west  { left: 12px; top: 50%; animation-name: throwInFromWest; }
+  .played-card.pos-east  { right: 12px; top: 50%; animation-name: throwInFromEast; }
+  @keyframes throwInFromSouth {
+    0%   { transform: translate(-50%, 220px) rotate(-12deg) scale(0.7); opacity: 0; }
+    100% { transform: translate(-50%, 0) rotate(-3deg) scale(1); opacity: 1; }
+  }
+  @keyframes throwInFromNorth {
+    0%   { transform: translate(-50%, -220px) rotate(8deg) scale(0.7); opacity: 0; }
+    100% { transform: translate(-50%, 0) rotate(2deg) scale(1); opacity: 1; }
+  }
+  @keyframes throwInFromWest {
+    0%   { transform: translate(-220px, -50%) rotate(-15deg) scale(0.7); opacity: 0; }
+    100% { transform: translate(0, -50%) rotate(-4deg) scale(1); opacity: 1; }
+  }
+  @keyframes throwInFromEast {
+    0%   { transform: translate(220px, -50%) rotate(15deg) scale(0.7); opacity: 0; }
+    100% { transform: translate(0, -50%) rotate(4deg) scale(1); opacity: 1; }
+  }
+  /* Keep the rotated rest state */
+  .played-card.pos-south { transform: translateX(-50%) rotate(-3deg); }
+  .played-card.pos-north { transform: translateX(-50%) rotate(2deg); }
+  .played-card.pos-west  { transform: translateY(-50%) rotate(-4deg); }
+  .played-card.pos-east  { transform: translateY(-50%) rotate(4deg); }
+  
+  /* Sweep cards to winner at end of trick */
+  .played-card.sweeping {
+    animation: sweepOut 0.6s ease-in forwards !important;
+  }
+  @keyframes sweepOut {
+    0%   { opacity: 1; }
+    100% { opacity: 0; transform: scale(0.3); }
+  }
+  
+  /* Trump-hidden marker */
+  .trump-hidden-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold), var(--gold-bright));
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    border: 1px solid rgba(0,0,0,0.2);
+    z-index: 2;
+  }
+  
+  /* Reveal flip on trick end */
+  .played-card.revealing .card {
+    animation: cardReveal 0.7s ease-in-out forwards;
+  }
+  @keyframes cardReveal {
+    0%   { transform: rotateY(0deg); }
+    50%  { transform: rotateY(90deg); }
+    100% { transform: rotateY(0deg); }
+  }
+  
+  .player-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--gold);
+    text-align: center;
+    margin-top: 4px;
+    background: rgba(10,30,23,0.75);
+    padding: 3px 8px;
+    border-radius: 4px;
+    backdrop-filter: blur(4px);
+    z-index: 3;
+    position: relative;
+    white-space: nowrap;
+  }
+  .player-label.label-north {
+    margin-top: 0;
+    margin-bottom: 4px;
+  }
+  
+  /* ============ SESSION INFO PANEL (top-left) ============ */
+  .session-info-panel {
+    position: fixed;
+    top: 70px;
+    left: 12px;
+    z-index: 40;
+    background: rgba(0,0,0,0.55);
+    border: 1px solid var(--gold);
+    border-radius: 8px;
+    padding: 10px 14px;
+    backdrop-filter: blur(8px);
+    min-width: 180px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .session-info-panel .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+  }
+  .session-info-panel .info-row + .info-row {
+    border-top: 1px solid rgba(212,168,75,0.18);
+  }
+  .session-info-panel .info-label {
+    color: rgba(244,234,213,0.7);
+    text-transform: uppercase;
+  }
+  .session-info-panel .info-value {
+    color: var(--gold-bright);
+    font-weight: 700;
+    font-size: 12px;
+  }
+  .session-info-panel .info-value.red { color: var(--red); }
+  .session-info-panel .info-value.black {
+    color: var(--ink);
+    background: var(--cream);
+    padding: 0 6px;
+    border-radius: 3px;
+  }
+  .session-info-panel .info-value.mode-atas { color: #6fcf97; }
+  .session-info-panel .info-value.mode-bawah { color: #eb5757; }
+  
+  /* ============ TRUMP DISPLAY (legacy, kept for compatibility but unused) ============ */
+  .trump-display {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,0,0,0.4);
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--gold);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--cream);
+  }
+  .trump-display .suit-symbol { font-size: 16px; }
+  .trump-display.red .suit-symbol { color: var(--red); }
+  .trump-display.black .suit-symbol { color: var(--ink); background: var(--cream); padding: 0 4px; border-radius: 3px; }
+  
+  /* ============ MODAL / OVERLAY ============ */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(8,20,15,0.85);
+    backdrop-filter: blur(6px);
+    z-index: 100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: linear-gradient(135deg, #1c4a37, #143628);
+    border: 2px solid var(--gold);
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 560px;
+    width: 100%;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(244,234,213,0.1);
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-weight: 600;
+    color: var(--gold-bright);
+    font-size: 32px;
+    text-align: center;
+    margin-bottom: 8px;
+    letter-spacing: 0.05em;
+  }
+  .modal .subtitle {
+    text-align: center;
+    color: rgba(244,234,213,0.7);
+    font-size: 14px;
+    margin-bottom: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .modal p { font-size: 16px; line-height: 1.6; margin-bottom: 12px; }
+  
+  /* ============ BUTTONS ============ */
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    font-weight: 500;
+    padding: 12px 24px;
+    border-radius: 6px;
+    border: 1px solid var(--gold);
+    background: transparent;
+    color: var(--gold-bright);
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  .btn:hover {
+    background: var(--gold);
+    color: var(--ink);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(212,168,75,0.3);
+  }
+  .btn.primary {
+    background: var(--gold);
+    color: var(--ink);
+    font-weight: 700;
+  }
+  .btn.primary:hover {
+    background: var(--gold-bright);
+  }
+  .btn.danger {
+    border-color: var(--red);
+    color: var(--red);
+  }
+  .btn.danger:hover {
+    background: var(--red);
+    color: var(--cream);
+  }
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+  
+  /* ============ BIDDING UI ============ */
+  .bid-area {
+    text-align: center;
+  }
+  .bid-instruction {
+    font-size: 18px;
+    margin-bottom: 16px;
+    font-style: italic;
+    color: var(--cream);
+  }
+  .bid-controls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .bid-display {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 36px;
+    color: var(--gold-bright);
+    font-weight: 700;
+    min-width: 80px;
+  }
+  
+  /* ============ SCOREBOARD ============ */
+  .scoreboard {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  .scoreboard th, .scoreboard td {
+    padding: 8px 12px;
+    text-align: center;
+    border-bottom: 1px solid rgba(212,168,75,0.2);
+  }
+  .scoreboard th {
+    color: var(--gold-bright);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    font-size: 11px;
+  }
+  .scoreboard td.name {
+    text-align: left;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 17px;
+  }
+  .scoreboard .delta-pos { color: #6fcf97; }
+  .scoreboard .delta-neg { color: #eb5757; }
+  .scoreboard tr.winner-row {
+    background: rgba(240,198,104,0.15);
+  }
+  
+  /* ============ COMMITMENT BADGE ============ */
+  .commit-badge {
+    display: inline-block;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--gold);
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--gold-bright);
+    margin-top: 4px;
+  }
+  
+  /* ============ LOG (highlight style used inside log viewer modal) ============ */
+  .highlight { color: var(--gold-bright); }
+  
+  /* ============ BANNER ============ */
+  .banner {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.8);
+    background: linear-gradient(135deg, var(--gold), var(--gold-bright));
+    color: var(--ink);
+    padding: 16px 48px;
+    border-radius: 8px;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 32px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    z-index: 90;
+    pointer-events: none;
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .banner.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  
+  /* RULES BUTTON */
+  .rules-btn {
+    background: none;
+    border: 1px solid rgba(212,168,75,0.4);
+    color: var(--gold-bright);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+  .rules-btn:hover { background: rgba(212,168,75,0.1); }
+  
+  .rules-list { padding-left: 20px; font-size: 14px; line-height: 1.7; }
+  .rules-list li { margin-bottom: 8px; }
+  
+  /* responsive tweaks */
+  @media (max-width: 900px) {
+    .player-card { min-width: 110px; padding: 6px 10px; }
+    .player-name { font-size: 16px; }
+    .play-area { width: 280px; height: 220px; }
+    .card { width: 50px; height: 72px; margin-left: -28px; }
+    .hand-south .card { width: 58px; height: 84px; margin-left: -32px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <div class="logo">TRUF</div>
+    <div class="topbar-info">
+      <span>SESSION <b id="sessionNum">1</b></span>
+      <span>ROUND <b id="roundNum">—</b>/13</span>
+      <span>PHASE <b id="phaseLabel">BIDDING</b></span>
+      <button class="rules-btn" onclick="openLogViewer()">Catatan</button>
+      <button class="rules-btn" onclick="showRules()">Aturan</button>
+      <button class="rules-btn" onclick="resetGame()">Restart</button>
+    </div>
+  </div>
+  
+  <div class="session-info-panel" id="sessionInfoPanel" style="display:none;">
+    <div class="info-row">
+      <span class="info-label">TRUF</span>
+      <span class="info-value" id="infoTrump">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">TOTAL KOMITMEN</span>
+      <span class="info-value" id="infoTotal">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">MODE</span>
+      <span class="info-value" id="infoMode">—</span>
+    </div>
+  </div>
+  
+  <div class="table">
+    <div class="seat seat-north">
+      <div class="player-card" id="player-1">
+        <div class="player-name">Bot Utara</div>
+        <div class="player-stats">
+          <span class="stat">SKOR <b id="score-1">0</b></span>
+          <span class="stat">BID <b id="bid-1">—</b></span>
+          <span class="stat">TRIK <b id="tricks-1">0</b></span>
+        </div>
+      </div>
+      <div class="hand hand-other" id="hand-1"></div>
+      <div id="confirm-1"></div>
+    </div>
+    
+    <div class="seat seat-west">
+      <div class="player-card" id="player-2">
+        <div class="player-name">Bot Barat</div>
+        <div class="player-stats">
+          <span class="stat">SKOR <b id="score-2">0</b></span>
+          <span class="stat">BID <b id="bid-2">—</b></span>
+          <span class="stat">TRIK <b id="tricks-2">0</b></span>
+        </div>
+      </div>
+      <div class="hand hand-other hand-side" id="hand-2"></div>
+      <div id="confirm-2"></div>
+    </div>
+    
+    <div class="seat seat-center">
+      <div class="play-area" id="playArea">
+        <div class="play-area-info" id="playAreaInfo">Fase Bidding</div>
+      </div>
+    </div>
+    
+    <div class="seat seat-east">
+      <div class="player-card" id="player-3">
+        <div class="player-name">Bot Timur</div>
+        <div class="player-stats">
+          <span class="stat">SKOR <b id="score-3">0</b></span>
+          <span class="stat">BID <b id="bid-3">—</b></span>
+          <span class="stat">TRIK <b id="tricks-3">0</b></span>
+        </div>
+      </div>
+      <div class="hand hand-other hand-side" id="hand-3"></div>
+      <div id="confirm-3"></div>
+    </div>
+    
+    <div class="seat seat-south">
+      <div class="player-card" id="player-0">
+        <div class="player-name">Anda</div>
+        <div class="player-stats">
+          <span class="stat">SKOR <b id="score-0">0</b></span>
+          <span class="stat">BID <b id="bid-0">—</b></span>
+          <span class="stat">TRIK <b id="tricks-0">0</b></span>
+        </div>
+      </div>
+      <div id="confirm-0"></div>
+      <div class="hand hand-south" id="hand-0"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Bidding Modal -->
+<div class="overlay" id="bidOverlay">
+  <div class="modal">
+    <h2>Sesi Bidding</h2>
+    <p class="subtitle">Tentukan komitmen Anda</p>
+    <div id="bidContent"></div>
+  </div>
+</div>
+
+<!-- Bidding result modal -->
+<div class="overlay" id="biddingResultOverlay">
+  <div class="modal">
+    <h2>Hasil Bidding</h2>
+    <p class="subtitle">Komitmen telah ditetapkan</p>
+    <div id="biddingResultContent"></div>
+  </div>
+</div>
+
+<!-- Trump-tie modal (total bid = 13) -->
+<div class="overlay" id="tieOverlay">
+  <div class="modal">
+    <h2>Total Bid = 13</h2>
+    <p class="subtitle">Pilih: naik atau turun?</p>
+    <div id="tieContent"></div>
+  </div>
+</div>
+
+<!-- Round summary modal -->
+<div class="overlay" id="roundOverlay">
+  <div class="modal">
+    <h2 id="roundTitle">Hasil Sesi</h2>
+    <p class="subtitle" id="roundSubtitle"></p>
+    <div id="roundContent"></div>
+    <div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap;">
+      <button class="btn" onclick="openLogViewer()">Lihat Catatan</button>
+      <button class="btn primary" onclick="nextSession()">Sesi Berikutnya</button>
+      <button class="btn danger" onclick="endTournament()">Selesai &amp; Penentuan Juara</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tournament end modal -->
+<div class="overlay" id="endOverlay">
+  <div class="modal">
+    <h2>Penentuan Juara</h2>
+    <p class="subtitle">Klasemen Akhir</p>
+    <div id="endContent"></div>
+    <div style="text-align:center;margin-top:20px;">
+      <button class="btn primary" onclick="resetGame()">Main Lagi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rules modal -->
+<div class="overlay" id="rulesOverlay">
+  <div class="modal">
+    <h2>Aturan Permainan</h2>
+    <ol class="rules-list">
+      <li>4 pemain, 52 kartu dibagi rata (13 per pemain). Joker tidak dipakai.</li>
+      <li><b>Bidding:</b> Setiap pemain bid 1x bergantian dengan kartu di tangannya. Kartu bid diletakkan tertutup di tengah. Setelah semua bid, kartu dibuka dan semua pemain harus konfirmasi sebelum permainan dimulai.</li>
+      <li><b>Bid 2 kartu:</b> Boleh, syarat total nilai ≥ 6. Jika suit kedua kartu sama → suit jadi truf. Jika suit beda → main tanpa truf (NT) bila pemain ini menang bid.</li>
+      <li><b>Nilai bid:</b> As=1, 2-10=angka, J=Q=K=0 (semua face card bernilai 0 saat bidding). Tie-break suit: ♠ &gt; ♥ &gt; ♣ &gt; ♦.</li>
+      <li><b>Total bid:</b> &gt;13 → main atas. &lt;13 → main bawah. =13 → pemenang bid pilih naik/turun X poin (semua komitmen ikut berubah).</li>
+      <li><b>Lead:</b> Pemenang bid memulai. Pemain lain harus follow suit kalau punya. Kalau tidak punya, bebas main truf atau buang.</li>
+      <li><b>Hierarki:</b> Truf &gt; Lead-suit &gt; lainnya. Kartu tertinggi dari suit dominan menang trik. Pemenang trik memimpin ronde berikutnya.</li>
+      <li><b>Skor sesi:</b> Trik = komitmen → dapat poin = komitmen. Bid 0 + 0 trik = +5 poin.</li>
+      <li><b>Gagal (atas):</b> kelebihan ×(-1), kekurangan ×(-2). <b>Gagal (bawah):</b> kekurangan ×(-1), kelebihan ×(-2).</li>
+      <li>13 trik = 1 sesi. Skor diakumulasi. Lanjut sesi berikutnya atau tentukan juara.</li>
+    </ol>
+    <div style="text-align:center;margin-top:20px;">
+      <button class="btn primary" onclick="closeOverlay('rulesOverlay')">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<div class="banner" id="banner"></div>
+
+<!-- Log viewer modal (opens from round summary) -->
+<div class="overlay" id="logViewerOverlay">
+  <div class="modal" style="max-width:640px;">
+    <h2>Catatan Permainan</h2>
+    <p class="subtitle" id="logViewerSubtitle">Sesi terbaru</p>
+    <div id="logViewerContent" style="max-height:60vh;overflow-y:auto;padding:12px;background:rgba(0,0,0,0.25);border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.65;"></div>
+    <div style="text-align:center;margin-top:18px;">
+      <button class="btn primary" onclick="closeOverlay('logViewerOverlay')">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// GAME STATE
+// ============================================================
+const SUITS = ['S','H','C','D'];  // Sekop, Love (Heart), Keriting (Club), Wajik (Diamond)
+const SUIT_SYMBOLS = { S:'♠', H:'♥', C:'♣', D:'♦' };
+const SUIT_NAMES = { S:'Sekop', H:'Love', C:'Keriting', D:'Wajik' };
+const SUIT_RANK = { S:4, H:3, C:2, D:1 };  // for bid tie-break
+const SUIT_COLOR = { S:'black', H:'red', C:'black', D:'red' };
+const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const RANK_VALUE = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14 };
+// Bid point value
+// Rules:
+//   - A = 1
+//   - 2..10 = face value
+//   - J, Q, K = 0 (all face cards worth 0 for bidding)
+function bidPointOf(card) {
+  if (card.rank === 'J' || card.rank === 'Q' || card.rank === 'K') return 0;
+  if (card.rank === 'A') return 1;
+  return parseInt(card.rank, 10);
+}
+
+// Compute bid value from 1 or 2 cards
+function computeBid(cards) {
+  if (!cards || cards.length === 0) return null;
+  if (cards.length === 1) {
+    const c = cards[0];
+    return {
+      cards: [c],
+      point: bidPointOf(c),
+      suit: c.suit,        // trump suit
+      noTrump: false,
+      tieSuit: c.suit,     // suit used for tie-break
+    };
+  }
+  // 2 cards
+  const p = bidPointOf(cards[0]) + bidPointOf(cards[1]);
+  const sameSuit = cards[0].suit === cards[1].suit;
+  // tieSuit: highest of the two
+  const tieSuit = SUIT_RANK[cards[0].suit] >= SUIT_RANK[cards[1].suit] ? cards[0].suit : cards[1].suit;
+  return {
+    cards: cards,
+    point: p,
+    suit: sameSuit ? cards[0].suit : null,
+    noTrump: !sameSuit,
+    tieSuit: tieSuit,
+  };
+}
+
+function formatBid(b) {
+  if (!b) return '—';
+  const parts = b.cards.map(c => `${c.rank}${SUIT_SYMBOLS[c.suit]}`).join(' + ');
+  const trump = b.noTrump ? 'NT' : SUIT_SYMBOLS[b.suit];
+  return `${b.point} ${trump} (${parts})`;
+}
+
+const PLAYERS = [
+  { id:0, name:'Anda', isHuman:true,  pos:'south' },
+  { id:1, name:'Bot Utara', isHuman:false, pos:'north' },
+  { id:2, name:'Bot Barat', isHuman:false, pos:'west' },
+  { id:3, name:'Bot Timur', isHuman:false, pos:'east' },
+];
+
+// Visual clockwise order (looking down on the table):
+// South (0) → West (2) → North (1) → East (3) → back to South
+const CLOCKWISE_ORDER = [0, 2, 1, 3];
+function nextClockwise(pid) {
+  const idx = CLOCKWISE_ORDER.indexOf(pid);
+  return CLOCKWISE_ORDER[(idx + 1) % 4];
+}
+function clockwiseFrom(startPid) {
+  const startIdx = CLOCKWISE_ORDER.indexOf(startPid);
+  const result = [];
+  for (let i = 0; i < 4; i++) result.push(CLOCKWISE_ORDER[(startIdx + i) % 4]);
+  return result;
+}
+
+let state = null;
+
+function freshState() {
+  return {
+    session: 1,
+    totals: [0,0,0,0],
+    hands: [[],[],[],[]],
+    bids: [null,null,null,null],
+    commitments: [0,0,0,0],
+    tricks: [0,0,0,0],
+    trumpSuit: null,
+    noTrump: false,
+    bidWinner: null,
+    currentLeader: null,
+    currentPlayer: null,
+    playedThisTrick: [],
+    leadSuit: null,
+    roundNum: 0,
+    phase: 'bidding',
+    confirmations: [false,false,false,false],
+    log: [],
+  };
+}
+
+// ============================================================
+// SETUP / DEAL
+// ============================================================
+function newDeck() {
+  const deck = [];
+  for (const s of SUITS) for (const r of RANKS) deck.push({ rank:r, suit:s });
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i+1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
+
+function sortHand(hand) {
+  hand.sort((a,b) => {
+    if (a.suit !== b.suit) return SUIT_RANK[b.suit] - SUIT_RANK[a.suit];
+    return RANK_VALUE[a.rank] - RANK_VALUE[b.rank];
+  });
+}
+
+function startSession() {
+  const deck = newDeck();
+  for (let i = 0; i < 52; i++) state.hands[i%4].push(deck[i]);
+  state.hands.forEach(sortHand);
+  state.bids = [null,null,null,null];
+  state.commitments = [0,0,0,0];
+  state.tricks = [0,0,0,0];
+  state.trumpSuit = null;
+  state.bidWinner = null;
+  state.currentLeader = null;
+  state.playedThisTrick = [];
+  state.leadSuit = null;
+  state.roundNum = 0;
+  state.phase = 'bidding';
+  state.bidTurnOrder = clockwiseFrom(0);
+  state.bidTurnIdx = 0;
+  state.log = [];
+  addLog(`<b class="highlight">Sesi ${state.session}</b> dimulai.`);
+  render();
+  startBidding();
+}
+
+// ============================================================
+// BIDDING
+// ============================================================
+function startBidding() {
+  state.phase = 'bidding';
+  document.getElementById('phaseLabel').textContent = 'BIDDING';
+  promptNextBid();
+}
+
+function promptNextBid() {
+  if (state.bidTurnIdx >= 4) {
+    // All players have bid - reveal phase
+    document.getElementById('phaseLabel').textContent = 'REVEAL';
+    setTimeout(revealBids, 500);
+    return;
+  }
+  const pid = state.bidTurnOrder[state.bidTurnIdx];
+  highlightActive(pid);
+  if (PLAYERS[pid].isHuman) {
+    openHumanBid(pid);
+  } else {
+    setTimeout(() => botBid(pid), 700 + Math.random()*500);
+  }
+}
+
+function openHumanBid(pid) {
+  const overlay = document.getElementById('bidOverlay');
+  const content = document.getElementById('bidContent');
+  const hand = state.hands[pid];
+  let selected = []; // array of card indices
+  
+  content.innerHTML = `
+    <p style="text-align:center;color:var(--cream);font-size:14px;margin-bottom:8px;">
+      Pilih <b>1 atau 2 kartu</b> dari tangan sebagai bid komitmen.
+    </p>
+    <p style="text-align:center;color:rgba(244,234,213,0.6);font-size:12px;margin-bottom:14px;line-height:1.5;">
+      Bid 2 kartu: total minimal 6. Jika suit sama → suit jadi truf. Jika suit beda → main tanpa truf.
+    </p>
+    <div id="bidHand" style="display:flex;flex-wrap:wrap;gap:10px 4px;justify-content:center;margin-bottom:18px;max-height:280px;overflow-y:auto;padding:24px 12px 16px 12px;background:rgba(0,0,0,0.2);border-radius:8px;"></div>
+    <div style="text-align:center;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.15em;color:var(--cream);margin-bottom:8px;">PRATINJAU BID</div>
+      <div class="bid-display" id="bidPreview">—</div>
+      <div id="bidWarning" style="color:#eb5757;font-size:12px;font-family:'JetBrains Mono',monospace;height:14px;margin-top:6px;"></div>
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:14px;">
+        <button class="btn" onclick="cancelBidSelection()">Reset</button>
+        <button class="btn primary" id="confirmBidBtn" onclick="confirmHumanBid()" disabled>Konfirmasi Bid</button>
+      </div>
+    </div>
+  `;
+  
+  const handBox = document.getElementById('bidHand');
+  hand.forEach((c, i) => {
+    const cardEl = document.createElement('div');
+    const isFace = ['J','Q','K','A'].includes(c.rank);
+    cardEl.className = `card ${SUIT_COLOR[c.suit]}${isFace ? ' face-card' : ''}`;
+    cardEl.style.marginLeft = '0';
+    cardEl.style.width = '60px';
+    cardEl.style.height = '84px';
+    cardEl.dataset.idx = i;
+    cardEl.innerHTML = renderCardInnerHTML(c);
+    cardEl.onclick = () => toggleBidCard(i, cardEl);
+    handBox.appendChild(cardEl);
+  });
+  
+  function updatePreview() {
+    const cards = selected.map(i => hand[i]);
+    const preview = document.getElementById('bidPreview');
+    const warn = document.getElementById('bidWarning');
+    const btn = document.getElementById('confirmBidBtn');
+    warn.textContent = '';
+    
+    if (cards.length === 0) {
+      preview.textContent = '—';
+      btn.disabled = true;
+      return;
+    }
+    const bid = computeBid(cards);
+    let trumpLabel;
+    if (cards.length === 1) trumpLabel = SUIT_SYMBOLS[bid.suit];
+    else trumpLabel = bid.noTrump ? 'NT' : SUIT_SYMBOLS[bid.suit];
+    preview.textContent = `${bid.point} ${trumpLabel}`;
+    
+    if (cards.length === 2 && bid.point < 6) {
+      warn.textContent = 'Bid 2 kartu minimal total 6 poin.';
+      btn.disabled = true;
+    } else {
+      btn.disabled = false;
+    }
+  }
+  
+  window.toggleBidCard = (idx, el) => {
+    const pos = selected.indexOf(idx);
+    if (pos >= 0) {
+      selected.splice(pos, 1);
+      el.classList.remove('selected-for-bid');
+    } else {
+      if (selected.length >= 2) {
+        // Replace oldest
+        const oldIdx = selected.shift();
+        const oldEl = handBox.querySelector(`[data-idx="${oldIdx}"]`);
+        if (oldEl) oldEl.classList.remove('selected-for-bid');
+      }
+      selected.push(idx);
+      el.classList.add('selected-for-bid');
+    }
+    updatePreview();
+  };
+  
+  window._pendingBid = { pid, getCards: () => selected.map(i => hand[i]) };
+  overlay.classList.add('show');
+}
+
+function cancelBidSelection() {
+  document.querySelectorAll('#bidHand .card').forEach(el => el.classList.remove('selected-for-bid'));
+  window._pendingBid.getCards = () => [];
+  document.getElementById('bidPreview').textContent = '—';
+  document.getElementById('confirmBidBtn').disabled = true;
+  document.getElementById('bidWarning').textContent = '';
+}
+
+function confirmHumanBid() {
+  const pending = window._pendingBid;
+  if (!pending) return;
+  const cards = pending.getCards();
+  if (cards.length === 0) return;
+  if (cards.length === 2 && bidPointOf(cards[0]) + bidPointOf(cards[1]) < 6) return;
+  
+  const pid = pending.pid;
+  const bid = computeBid(cards);
+  state.bids[pid] = bid;
+  // Remove the bid cards from hand temporarily for animation; we'll restore at reveal
+  // Actually we keep them in hand (bid cards return to hand per rule), but visually we animate to center.
+  document.getElementById('bidOverlay').classList.remove('show');
+  addLog(`${PLAYERS[pid].name} sudah menentukan bid.`);
+  animateBidToTable(pid, bid);
+  state.bidTurnIdx++;
+  setTimeout(promptNextBid, 900);
+}
+
+function botBid(pid) {
+  const hand = state.hands[pid];
+  
+  // Per-suit analysis to estimate likely tricks
+  // Group cards by suit
+  const bySuit = { S: [], H: [], C: [], D: [] };
+  for (const c of hand) bySuit[c.suit].push(c);
+  for (const s of SUITS) bySuit[s].sort((a,b) => RANK_VALUE[b.rank] - RANK_VALUE[a.rank]);
+  
+  // Estimate tricks for a hypothetical trump choice
+  function estimateTricks(trumpChoice) {
+    let total = 0;
+    
+    for (const s of SUITS) {
+      const cards = bySuit[s];
+      if (cards.length === 0) continue;
+      
+      if (s === trumpChoice) {
+        // Trump suit: high trumps almost always win; length matters too
+        for (const c of cards) {
+          if (c.rank === 'A') total += 0.95;
+          else if (c.rank === 'K') total += 0.85;
+          else if (c.rank === 'Q') total += 0.7;
+          else if (c.rank === 'J') total += 0.5;
+          else if (c.rank === '10') total += 0.35;
+          else if (c.rank === '9') total += 0.2;
+          else total += 0.1; // low trumps still useful for ruffing
+        }
+        // Length bonus: extra trumps after the 4th typically win on length
+        if (cards.length > 4) total += (cards.length - 4) * 0.3;
+      } else {
+        // Non-trump suit
+        for (const c of cards) {
+          if (c.rank === 'A') total += 0.85;
+          else if (c.rank === 'K') total += 0.55; // K beats Q unless trumped
+          else if (c.rank === 'Q') total += 0.25;
+          else if (c.rank === 'J') total += 0.10;
+          // Lower cards: virtually no chance to win
+        }
+        // Short suit (1-2 cards) means we can trump it later when others lead it
+        if (trumpChoice && cards.length <= 2) total += 0.3 * (3 - cards.length);
+      }
+    }
+    
+    // Void suits when there's a trump are very strong (can trump every time they're led)
+    if (trumpChoice) {
+      for (const s of SUITS) {
+        if (s !== trumpChoice && bySuit[s].length === 0) total += 0.5;
+      }
+    }
+    
+    return total;
+  }
+  
+  // Try each possible trump suit + no-trump and find best estimate
+  const trumpOptions = {};
+  for (const s of SUITS) trumpOptions[s] = estimateTricks(s);
+  trumpOptions['NT'] = estimateTricks(null);
+  
+  // Pick best trump (the one that gives most tricks)
+  let bestTrump = 'S';
+  for (const s of [...SUITS, 'NT']) {
+    if (trumpOptions[s] > trumpOptions[bestTrump]) bestTrump = s;
+  }
+  
+  // The estimate is for the best trump scenario
+  // Round to a reasonable integer with tiny randomness
+  const rawEstimate = trumpOptions[bestTrump];
+  let estimate = Math.round(rawEstimate + (Math.random() * 0.8 - 0.4));
+  estimate = Math.max(0, Math.min(13, estimate));
+  
+  // Build candidate bids
+  const candidates = [];
+  
+  // 1-card bids
+  for (const c of hand) {
+    const cards = [c];
+    const bid = computeBid(cards);
+    candidates.push({ cards, bid, est: estimateTricks(c.suit) });
+  }
+  // 2-card bids
+  for (let i = 0; i < hand.length; i++) {
+    for (let j = i+1; j < hand.length; j++) {
+      const total = bidPointOf(hand[i]) + bidPointOf(hand[j]);
+      if (total < 6) continue;
+      const cards = [hand[i], hand[j]];
+      const bid = computeBid(cards);
+      const trumpForEst = bid.noTrump ? null : bid.suit;
+      candidates.push({ cards, bid, est: estimateTricks(trumpForEst) });
+    }
+  }
+  
+  // Score: prefer bid whose POINT value is close to the est of the trump it would create
+  // This is the key insight: the bid POINT should match expected tricks under that trump
+  candidates.forEach(cand => {
+    const trumpForBid = cand.bid.noTrump ? null : cand.bid.suit;
+    const expectedTricks = estimateTricks(trumpForBid);
+    const diff = Math.abs(cand.bid.point - expectedTricks);
+    
+    // Heavy penalty for mismatch — bot HATES bidding far from expected
+    let score = -diff * 12;
+    
+    // Penalty: if estimate is high (>=6) but bid is low, that means we'll likely overshoot
+    // Bidding too low is dangerous because we'll win tricks we don't want
+    if (expectedTricks >= 6 && cand.bid.point <= 2) score -= 8;
+    
+    // Bonus if bid suit is our strongest
+    if (trumpForBid && trumpOptions[trumpForBid] === Math.max(...SUITS.map(s => trumpOptions[s]))) {
+      score += 4;
+    }
+    
+    // Slightly prefer 1-card bids for clarity, but allow 2-card when it makes sense
+    if (cand.cards.length === 1) score += 0.5;
+    
+    // Avoid no-trump unless our hand is balanced and high
+    if (cand.bid.noTrump) {
+      if (expectedTricks < 7) score -= 8;
+      else score -= 2; // still slight aversion
+    }
+    
+    // Tiny randomness for variety
+    score += Math.random() * 1.5;
+    
+    cand.score = score;
+    cand.diff = diff;
+  });
+  
+  candidates.sort((a,b) => b.score - a.score);
+  const chosen = candidates[0];
+  
+  state.bids[pid] = chosen.bid;
+  addLog(`${PLAYERS[pid].name} sudah menentukan bid.`);
+  animateBidToTable(pid, chosen.bid);
+  state.bidTurnIdx++;
+  setTimeout(promptNextBid, 900);
+}
+
+function animateBidToTable(pid, bid) {
+  // During bidding phase: always show only ONE face-down card on the table,
+  // regardless of whether the player bid with 1 or 2 cards. This keeps the
+  // info hidden from other players who haven't bid yet.
+  const playArea = document.getElementById('playArea');
+  // Remove existing zone for this player if any
+  const existing = document.getElementById(`bidzone-${pid}`);
+  if (existing) existing.remove();
+  
+  const zone = document.createElement('div');
+  zone.id = `bidzone-${pid}`;
+  zone.className = `bid-zone pos-${PLAYERS[pid].pos}`;
+  // Remember the actual bid card count so revealBids can expand if needed
+  zone.dataset.bidCount = bid.cards.length;
+  
+  // Position offsets relative to play-area
+  const positions = {
+    south: { bottom: '8px', left: '50%', transform: 'translateX(-50%)' },
+    north: { top: '8px', left: '50%', transform: 'translateX(-50%)' },
+    west: { left: '14px', top: '50%', transform: 'translateY(-50%)' },
+    east: { right: '14px', top: '50%', transform: 'translateY(-50%)' },
+  };
+  const pos = positions[PLAYERS[pid].pos];
+  Object.keys(pos).forEach(k => zone.style[k] = pos[k]);
+  
+  // Add a label
+  const label = document.createElement('div');
+  label.className = 'bid-label';
+  label.textContent = PLAYERS[pid].name;
+  zone.appendChild(label);
+  
+  // Add only ONE face-down card (hide bid size from other players)
+  const cardEl = document.createElement('div');
+  cardEl.className = 'card card-back';
+  cardEl.style.marginLeft = '0';
+  zone.appendChild(cardEl);
+  
+  playArea.appendChild(zone);
+  renderStats();
+}
+
+function revealBids() {
+  // For each player, first ensure the bid zone has the correct number of
+  // face-down cards (add a 2nd one if their bid was 2 cards), then flip all
+  // face-up with a staggered animation.
+  for (let pid = 0; pid < 4; pid++) {
+    const zone = document.getElementById(`bidzone-${pid}`);
+    if (!zone) continue;
+    const bid = state.bids[pid];
+    
+    // If this bid had 2 cards but we only show 1, slide in the second card now
+    let existingCards = zone.querySelectorAll('.card');
+    if (bid.cards.length === 2 && existingCards.length === 1) {
+      const secondCard = document.createElement('div');
+      secondCard.className = 'card card-back';
+      secondCard.style.marginLeft = '-20px';
+      // Initially invisible/scaled-down, then expand into view
+      secondCard.style.opacity = '0';
+      secondCard.style.transform = 'translateX(-30px) scale(0.6)';
+      secondCard.style.transition = 'opacity 0.35s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      zone.appendChild(secondCard);
+      // Trigger reveal
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          secondCard.style.opacity = '1';
+          secondCard.style.transform = 'translateX(0) scale(1)';
+        }, pid * 80);
+      });
+    }
+  }
+  
+  // After the 2nd-card-reveal animation (give it ~500ms), flip all bid cards
+  setTimeout(() => {
+    for (let pid = 0; pid < 4; pid++) {
+      const zone = document.getElementById(`bidzone-${pid}`);
+      if (!zone) continue;
+      const bid = state.bids[pid];
+      const cardEls = zone.querySelectorAll('.card');
+      cardEls.forEach((el, idx) => {
+        const c = bid.cards[idx];
+        if (!c) return;
+        setTimeout(() => {
+          el.classList.add('flipping');
+          setTimeout(() => {
+            const isFace = ['J','Q','K','A'].includes(c.rank);
+            el.classList.remove('card-back');
+            el.classList.add(SUIT_COLOR[c.suit]);
+            if (isFace) el.classList.add('face-card');
+            el.innerHTML = renderCardInnerHTML(c);
+          }, 300);
+          setTimeout(() => el.classList.remove('flipping'), 600);
+        }, pid * 200 + idx * 100);
+      });
+      // Update label to show bid value
+      const label = zone.querySelector('.bid-label');
+      if (label) {
+        setTimeout(() => {
+          const trumpLabel = bid.noTrump ? 'NT' : SUIT_SYMBOLS[bid.suit];
+          label.innerHTML = `${PLAYERS[pid].name} · <span style="color:var(--gold-bright)">${bid.point} ${trumpLabel}</span>`;
+        }, pid * 200 + 400);
+      }
+    }
+    
+    // After flip animation, log the bids and show confirm buttons
+    setTimeout(() => {
+      for (let pid = 0; pid < 4; pid++) {
+        addLog(`${PLAYERS[pid].name} bid <b class="highlight">${formatBid(state.bids[pid])}</b>`);
+      }
+      showConfirmButtons();
+    }, 1400);
+  }, 550);
+}
+
+function showConfirmButtons() {
+  state.confirmations = [false, false, false, false];
+  // remove active highlight (all players are confirming)
+  document.querySelectorAll('.player-card.active').forEach(el => el.classList.remove('active'));
+  for (let pid = 0; pid < 4; pid++) {
+    const box = document.getElementById(`confirm-${pid}`);
+    box.innerHTML = '';
+    const btn = document.createElement('button');
+    btn.className = 'confirm-btn';
+    btn.textContent = PLAYERS[pid].isHuman ? 'Konfirmasi' : 'Konfirmasi Bot';
+    btn.onclick = () => clickConfirm(pid);
+    box.appendChild(btn);
+    if (!PLAYERS[pid].isHuman) {
+      setTimeout(() => clickConfirm(pid), 1000 + Math.random() * 1500);
+    }
+  }
+  document.getElementById('phaseLabel').textContent = 'KONFIRMASI';
+}
+
+function clickConfirm(pid) {
+  if (state.confirmations[pid]) return;
+  state.confirmations[pid] = true;
+  const box = document.getElementById(`confirm-${pid}`);
+  const btn = box.querySelector('.confirm-btn');
+  if (btn) {
+    btn.classList.add('confirmed');
+    btn.textContent = 'Terkonfirmasi';
+  }
+  if (state.confirmations.every(c => c)) {
+    setTimeout(finishBidConfirmation, 600);
+  }
+}
+
+function finishBidConfirmation() {
+  // Clear confirm buttons and bid zones; cards "return" to hand visually (re-render hand)
+  for (let pid = 0; pid < 4; pid++) {
+    const box = document.getElementById(`confirm-${pid}`);
+    if (box) box.innerHTML = '';
+    const zone = document.getElementById(`bidzone-${pid}`);
+    if (zone) {
+      zone.style.transition = 'opacity 0.5s, transform 0.5s';
+      zone.style.opacity = '0';
+      zone.style.transform += ' scale(0.5)';
+      setTimeout(() => zone.remove(), 500);
+    }
+  }
+  setTimeout(resolveBidsAfterReveal, 600);
+}
+
+function resolveBidsAfterReveal() {
+  // Determine highest bid: highest point. Tie-break by tieSuit rank S>H>C>D.
+  let winner = 0;
+  for (let i = 1; i < 4; i++) {
+    const a = state.bids[winner], b = state.bids[i];
+    if (b.point > a.point) winner = i;
+    else if (b.point === a.point && SUIT_RANK[b.tieSuit] > SUIT_RANK[a.tieSuit]) winner = i;
+  }
+  state.bidWinner = winner;
+  const winBid = state.bids[winner];
+  state.noTrump = !!winBid.noTrump;
+  state.trumpSuit = state.noTrump ? null : winBid.suit;
+  // Each player's commitment = their own bid's point value
+  for (let i = 0; i < 4; i++) state.commitments[i] = state.bids[i].point;
+  
+  const totalCommit = state.commitments.reduce((a,b) => a+b, 0);
+  const initialMode = totalCommit > 13 ? 'atas' : (totalCommit < 13 ? 'bawah' : 'tie');
+  
+  // Update top-left session info panel
+  updateSessionInfoPanel();
+  
+  const trumpLabel = state.noTrump ? 'NO TRUMP' : `${SUIT_NAMES[state.trumpSuit]} ${SUIT_SYMBOLS[state.trumpSuit]}`;
+  addLog(`<b class="highlight">${PLAYERS[winner].name}</b> menang bid. Truf: <b class="highlight">${trumpLabel}</b>`);
+  renderStats();
+  
+  // Show popup with bidding result
+  if (initialMode !== 'tie') {
+    showBiddingResultPopup({
+      winner,
+      trumpLabel,
+      totalCommit,
+      mode: initialMode,
+      onContinue: startPlay,
+    });
+  } else {
+    // Tie: total is exactly 13, need bid winner to decide naik/turun
+    setTimeout(openTieDecision, 700);
+  }
+}
+
+function updateSessionInfoPanel() {
+  const panel = document.getElementById('sessionInfoPanel');
+  panel.style.display = 'block';
+  const trumpEl = document.getElementById('infoTrump');
+  const totalEl = document.getElementById('infoTotal');
+  const modeEl = document.getElementById('infoMode');
+  
+  // Trump
+  trumpEl.className = 'info-value';
+  if (state.noTrump) {
+    trumpEl.textContent = 'NT';
+  } else if (state.trumpSuit) {
+    trumpEl.textContent = `${SUIT_SYMBOLS[state.trumpSuit]} ${SUIT_NAMES[state.trumpSuit]}`;
+    trumpEl.classList.add(SUIT_COLOR[state.trumpSuit]);
+  } else {
+    trumpEl.textContent = '—';
+  }
+  
+  // Total commitment
+  const total = state.commitments.reduce((a,b) => a+b, 0);
+  totalEl.textContent = total;
+  
+  // Mode
+  modeEl.className = 'info-value';
+  if (total > 13) { modeEl.textContent = 'ATAS'; modeEl.classList.add('mode-atas'); }
+  else if (total < 13) { modeEl.textContent = 'BAWAH'; modeEl.classList.add('mode-bawah'); }
+  else { modeEl.textContent = 'TIE (13)'; }
+}
+
+function showBiddingResultPopup({ winner, trumpLabel, totalCommit, mode, onContinue, extraNote }) {
+  const overlay = document.getElementById('biddingResultOverlay');
+  const content = document.getElementById('biddingResultContent');
+  const modeColor = mode === 'atas' ? '#6fcf97' : (mode === 'bawah' ? '#eb5757' : 'var(--gold-bright)');
+  
+  let commitRows = '';
+  for (let i = 0; i < 4; i++) {
+    commitRows += `<tr><td class="name">${PLAYERS[i].name}</td><td>${state.commitments[i]}</td></tr>`;
+  }
+  
+  content.innerHTML = `
+    <div style="text-align:center;margin-bottom:14px;font-size:15px;line-height:1.6;">
+      <b style="color:var(--gold-bright)">${PLAYERS[winner].name}</b> memenangkan bid komitmen.
+    </div>
+    ${extraNote ? `<div style="text-align:center;margin-bottom:14px;padding:10px;background:rgba(212,168,75,0.1);border-radius:6px;font-size:14px;">${extraNote}</div>` : ''}
+    <table class="scoreboard" style="margin:8px 0 14px 0;">
+      <thead><tr><th>Pemain</th><th>Komitmen</th></tr></thead>
+      <tbody>${commitRows}</tbody>
+    </table>
+    <div style="display:flex;justify-content:space-around;gap:8px;margin:14px 0;text-align:center;">
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.15em;color:rgba(244,234,213,0.6);">TRUF</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--gold-bright);font-weight:700;">${trumpLabel}</div>
+      </div>
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.15em;color:rgba(244,234,213,0.6);">TOTAL</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--gold-bright);font-weight:700;">${totalCommit}</div>
+      </div>
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.15em;color:rgba(244,234,213,0.6);">MODE</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:24px;color:${modeColor};font-weight:700;">MAIN ${mode.toUpperCase()}</div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:18px;">
+      <button class="btn primary" id="biddingResultContinueBtn">Mulai Ronde</button>
+    </div>
+  `;
+  overlay.classList.add('show');
+  document.getElementById('biddingResultContinueBtn').onclick = () => {
+    overlay.classList.remove('show');
+    setTimeout(onContinue, 200);
+  };
+}
+
+// ============================================================
+// TIE DECISION (total bid = 13)
+// ============================================================
+function openTieDecision() {
+  state.phase = 'tie-decide';
+  document.getElementById('phaseLabel').textContent = 'TIE DECIDE';
+  if (PLAYERS[state.bidWinner].isHuman) {
+    const overlay = document.getElementById('tieOverlay');
+    const content = document.getElementById('tieContent');
+    content.innerHTML = `
+      <p style="text-align:center;margin-bottom:16px;">
+        Total komitmen = 13. Sebagai pemenang bid, Anda pilih: <b>naik X</b> (semua komitmen +X, total &gt;13 → main atas)
+        atau <b>turun X</b> (semua komitmen -X, min 0, total &lt;13 → main bawah).
+      </p>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:16px 0;">
+        ${[1,2,3,4,5].map(x => `<button class="btn" onclick="applyTieDecision(${x})">Naik ${x}</button>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+        ${[1,2,3,4,5].map(x => `<button class="btn" onclick="applyTieDecision(${-x})">Turun ${x}</button>`).join('')}
+      </div>
+    `;
+    overlay.classList.add('show');
+  } else {
+    setTimeout(() => {
+      // Bot tie decision: random small adjustment, weighted by hand strength
+      const hand = state.hands[state.bidWinner];
+      let strength = 0;
+      for (const c of hand) {
+        if (c.suit === state.trumpSuit) strength += 1;
+        if (c.rank === 'A') strength += 0.5;
+        if (c.rank === 'K') strength += 0.3;
+      }
+      const delta = strength > 5 ? (1 + Math.floor(Math.random()*2)) : -(1 + Math.floor(Math.random()*2));
+      applyTieDecision(delta);
+    }, 900);
+  }
+}
+
+function applyTieDecision(delta) {
+  document.getElementById('tieOverlay').classList.remove('show');
+  for (let i = 0; i < 4; i++) {
+    state.commitments[i] = Math.max(0, state.commitments[i] + delta);
+  }
+  const total = state.commitments.reduce((a,b) => a+b, 0);
+  const mode = total > 13 ? 'atas' : (total < 13 ? 'bawah' : 'seimbang');
+  const sign = delta > 0 ? '+' : '';
+  addLog(`${PLAYERS[state.bidWinner].name} memilih <b class="highlight">${sign}${delta}</b>. Total komitmen → <b class="highlight">${total}</b> (main ${mode}).`);
+  renderStats();
+  updateSessionInfoPanel();
+  
+  const trumpLabel = state.noTrump ? 'NO TRUMP' : `${SUIT_NAMES[state.trumpSuit]} ${SUIT_SYMBOLS[state.trumpSuit]}`;
+  const deltaText = delta > 0
+    ? `<b style="color:#6fcf97">Naik ${delta} poin</b>`
+    : `<b style="color:#eb5757">Turun ${Math.abs(delta)} poin</b>`;
+  const extraNote = `${PLAYERS[state.bidWinner].name} memilih ${deltaText}. Semua komitmen pemain berubah ${sign}${delta} (minimum 0).`;
+  
+  setTimeout(() => {
+    showBiddingResultPopup({
+      winner: state.bidWinner,
+      trumpLabel,
+      totalCommit: total,
+      mode,
+      onContinue: startPlay,
+      extraNote,
+    });
+  }, 400);
+}
+
+// ============================================================
+// PLAY PHASE
+// ============================================================
+function startPlay() {
+  state.phase = 'playing';
+  document.getElementById('phaseLabel').textContent = 'BERMAIN';
+  state.currentLeader = state.bidWinner;
+  state.currentPlayer = state.bidWinner;
+  state.roundNum = 1;
+  document.getElementById('roundNum').textContent = state.roundNum;
+  document.getElementById('playAreaInfo').style.display = 'none';
+  render();
+  promptNextPlay();
+}
+
+function promptNextPlay() {
+  const pid = state.currentPlayer;
+  highlightActive(pid);
+  if (PLAYERS[pid].isHuman) {
+    refreshHumanPlayability();
+  } else {
+    setTimeout(() => botPlay(pid), 700 + Math.random()*500);
+  }
+}
+
+function getLegalMoves(pid) {
+  const hand = state.hands[pid];
+  if (state.leadSuit == null) return hand.slice();
+  const sameSuit = hand.filter(c => c.suit === state.leadSuit);
+  if (sameSuit.length > 0) return sameSuit;
+  // No lead suit: free to play anything (trump or discard)
+  return hand.slice();
+}
+
+function refreshHumanPlayability() {
+  const handBox = document.getElementById('hand-0');
+  // Determine if it's actually human's turn AND no trick is being resolved
+  const isHumanTurn = state.phase === 'playing'
+    && state.currentPlayer === 0
+    && state.playedThisTrick.length < 4;
+  
+  if (!isHumanTurn) {
+    // Disable all clicks
+    [...handBox.children].forEach(el => {
+      el.classList.remove('playable');
+      el.classList.add('unplayable');
+      el.onclick = null;
+    });
+    return;
+  }
+  
+  const legal = getLegalMoves(0);
+  const legalSet = new Set(legal.map(c => c.rank+c.suit));
+  [...handBox.children].forEach((el, idx) => {
+    const c = state.hands[0][idx];
+    if (!c) return;
+    const k = c.rank+c.suit;
+    el.classList.remove('playable','unplayable');
+    if (legalSet.has(k)) el.classList.add('playable');
+    else el.classList.add('unplayable');
+    el.onclick = legalSet.has(k) ? () => humanPlayCard(idx) : null;
+  });
+}
+
+function humanPlayCard(idx) {
+  // Triple guard: phase must be playing, it must be human's turn, and no trick being resolved
+  if (state.phase !== 'playing') return;
+  if (state.currentPlayer !== 0) return;
+  if (state.playedThisTrick.length >= 4) return;
+  const card = state.hands[0][idx];
+  if (!card) return;
+  if (!getLegalMoves(0).some(c => c.rank===card.rank && c.suit===card.suit)) return;
+  // Immediately disable further clicks before processing
+  const handBox = document.getElementById('hand-0');
+  [...handBox.children].forEach(el => { el.onclick = null; el.classList.remove('playable'); el.classList.add('unplayable'); });
+  playCard(0, card);
+}
+
+function botPlay(pid) {
+  const legal = getLegalMoves(pid);
+  const card = chooseBotCard(pid, legal);
+  playCard(pid, card);
+}
+
+function chooseBotCard(pid, legal) {
+  const hand = state.hands[pid];
+  const trump = state.trumpSuit;
+  const isLeader = state.playedThisTrick.length === 0;
+  const tricks = state.tricks[pid];
+  const commit = state.commitments[pid];
+  const remaining = 13 - state.roundNum + 1;  // including current trick
+  const needed = commit - tricks;              // tricks still needed to hit commit exactly
+  
+  // Mode classification
+  // - PERFECT: already met commit, must avoid winning ANY more tricks
+  // - NEED: still need tricks; urgency = needed / remaining
+  // - OVERCOMMITTED: already past commit (already failing); damage control - avoid winning more
+  // - IMPOSSIBLE: needed > remaining; can't make it; minimize loss by winning as many as still possible
+  let mode;
+  if (needed === 0) mode = 'PERFECT';
+  else if (needed < 0) mode = 'OVERCOMMITTED';
+  else if (needed > remaining) mode = 'IMPOSSIBLE';
+  else mode = 'NEED';
+  
+  const urgency = mode === 'NEED' ? needed / remaining : 0;
+  // If urgency >= 1, bot MUST try to win every remaining trick
+  // If urgency low, bot can afford to be picky
+  
+  // Evaluate current best on table (for followers)
+  let currentBest = null;
+  if (!isLeader) currentBest = computeWinningCardSoFar();
+  
+  // Predict: if I play card c, will I win this trick?
+  function wouldWin(c) {
+    if (isLeader) {
+      // Leader: depends on what others play. Estimate: high non-trump from lead suit
+      // wins unless someone trumps or holds higher in same suit.
+      // We use a heuristic: trump always likely wins; A almost always wins; K usually wins.
+      if (trump && c.suit === trump) return true; // assumes followers may not trump-over
+      if (c.rank === 'A') return true;
+      if (c.rank === 'K') return true;
+      if (c.rank === 'Q') return Math.random() < 0.6;
+      if (c.rank === 'J') return Math.random() < 0.35;
+      return false;
+    }
+    // Follower: check if c beats currentBest AND no remaining player after us is likely to beat us.
+    if (!beats(c, currentBest.card, state.leadSuit, trump)) return false;
+    // Are there players still to play after us? Less certain in that case.
+    const playersAfter = 4 - state.playedThisTrick.length - 1;
+    if (playersAfter === 0) return true; // we're last, definite if we beat current
+    // Estimate: if we played trump high, very likely we still win; otherwise less certain
+    if (trump && c.suit === trump && RANK_VALUE[c.rank] >= 12) return true;
+    if (c.rank === 'A' && c.suit === state.leadSuit) return Math.random() < 0.85;
+    // medium confidence
+    return Math.random() < 0.7;
+  }
+  
+  // ============================================
+  // MODE: PERFECT or OVERCOMMITTED → AVOID winning at all costs
+  // ============================================
+  if (mode === 'PERFECT' || mode === 'OVERCOMMITTED') {
+    if (isLeader) {
+      // Lead the LOWEST card to lose this trick.
+      // Prefer non-trump suits where we have weak cards.
+      // Avoid leading high cards.
+      const sorted = legal.slice().sort((a,b) => cardStrength(a, a.suit, trump) - cardStrength(b, b.suit, trump));
+      // Prefer non-trump
+      const nonTrump = sorted.filter(c => c.suit !== trump);
+      if (nonTrump.length) return nonTrump[0];
+      return sorted[0];
+    }
+    // Follower trying not to win:
+    // 1) Play highest non-winning card (dump junk)
+    // 2) Prefer non-trump; never trump if avoidable
+    const nonWinning = legal.filter(c => !beats(c, currentBest.card, state.leadSuit, trump));
+    if (nonWinning.length) {
+      const nonTrump = nonWinning.filter(c => c.suit !== trump);
+      const pool = nonTrump.length ? nonTrump : nonWinning;
+      // Dump highest junk to get rid of dangerous cards
+      return pool.sort((a,b) => RANK_VALUE[b.rank] - RANK_VALUE[a.rank])[0];
+    }
+    // Forced to win: play lowest winning card (least damage)
+    return legal.slice().sort((a,b) => cardStrength(a, state.leadSuit, trump) - cardStrength(b, state.leadSuit, trump))[0];
+  }
+  
+  // ============================================
+  // MODE: IMPOSSIBLE → can't reach commit; minimize loss
+  // In 'atas' (overshoot bid), each under-trick = -2, so try to win as much as possible.
+  // In 'bawah' (under bid total), each under-trick = -1, so under is cheaper. But still try to hit commit.
+  // For simplicity: try to win every trick when impossible
+  // ============================================
+  if (mode === 'IMPOSSIBLE') {
+    if (isLeader) {
+      // Lead the strongest card (high trump if available, else A of longest non-trump)
+      const trumps = legal.filter(c => c.suit === trump);
+      if (trumps.length) return trumps.sort((a,b) => RANK_VALUE[b.rank] - RANK_VALUE[a.rank])[0];
+      return legal.slice().sort((a,b) => RANK_VALUE[b.rank] - RANK_VALUE[a.rank])[0];
+    }
+    // Follower: try to win with lowest winning card
+    const winners = legal.filter(c => beats(c, currentBest.card, state.leadSuit, trump));
+    if (winners.length) {
+      return winners.sort((a,b) => cardStrength(a, state.leadSuit, trump) - cardStrength(b, state.leadSuit, trump))[0];
+    }
+    // Can't win: dump lowest (preserve high cards for future)
+    return legal.slice().sort((a,b) => RANK_VALUE[a.rank] - RANK_VALUE[b.rank])[0];
+  }
+  
+  // ============================================
+  // MODE: NEED → balance winning needed tricks vs preserving low cards for losing tricks
+  // ============================================
+  // Strategy:
+  // - High urgency (>=0.7): must win when possible
+  // - Medium urgency (0.4-0.7): win opportunistically with strong cards
+  // - Low urgency (<0.4): can afford to set up losing tricks; be picky about winners
+  
+  if (isLeader) {
+    if (urgency >= 0.7) {
+      // High urgency: lead a card we expect to win
+      // Prefer leading our highest non-trump (A or K) to grab a trick, save trump for later
+      const aces = legal.filter(c => c.rank === 'A');
+      if (aces.length) {
+        // Prefer non-trump ace (don't waste trump A leading)
+        const nonTrumpAce = aces.find(c => c.suit !== trump);
+        return nonTrumpAce || aces[0];
+      }
+      const kings = legal.filter(c => c.rank === 'K' && c.suit !== trump);
+      if (kings.length) return kings[0];
+      // Else lead a high trump to draw out opponents' trumps
+      const highTrumps = legal.filter(c => c.suit === trump && RANK_VALUE[c.rank] >= 12);
+      if (highTrumps.length) return highTrumps.sort((a,b) => RANK_VALUE[b.rank] - RANK_VALUE[a.rank])[0];
+      // Fallback: highest card
+      return legal.slice().sort((a,b) => RANK_VALUE[b.rank] - RANK_VALUE[a.rank])[0];
+    } else if (urgency >= 0.4) {
+      // Medium urgency: lead a strong but not top card
+      const aces = legal.filter(c => c.rank === 'A' && c.suit !== trump);
+      if (aces.length) return aces[0];
+      // Lead mid-high non-trump to test
+      const nonTrump = legal.filter(c => c.suit !== trump);
+      if (nonTrump.length) {
+        const sorted = nonTrump.sort((a,b) => RANK_VALUE[b.rank] - RANK_VALUE[a.rank]);
+        return sorted[Math.min(1, sorted.length - 1)]; // second-highest non-trump
+      }
+      return legal[0];
+    } else {
+      // Low urgency: don't waste high cards; lead low to save winners for later
+      // But lead a suit where we're strong (longest)
+      const suitCounts = {};
+      for (const c of legal) suitCounts[c.suit] = (suitCounts[c.suit] || 0) + 1;
+      const longest = Object.keys(suitCounts).sort((a,b) => suitCounts[b] - suitCounts[a])[0];
+      const inLongest = legal.filter(c => c.suit === longest && c.suit !== trump);
+      const pool = inLongest.length ? inLongest : legal.filter(c => c.suit !== trump);
+      if (pool.length) {
+        // Lead a mid-low card in longest non-trump
+        return pool.sort((a,b) => RANK_VALUE[a.rank] - RANK_VALUE[b.rank])[Math.floor(pool.length * 0.3)];
+      }
+      return legal.slice().sort((a,b) => RANK_VALUE[a.rank] - RANK_VALUE[b.rank])[0];
+    }
+  }
+  
+  // Follower with NEED
+  const winners = legal.filter(c => beats(c, currentBest.card, state.leadSuit, trump));
+  
+  if (urgency >= 0.7) {
+    // Must win if possible — play lowest card that beats current
+    if (winners.length) {
+      return winners.sort((a,b) => cardStrength(a, state.leadSuit, trump) - cardStrength(b, state.leadSuit, trump))[0];
+    }
+    // Can't win: dump lowest (save high cards for later opportunities)
+    return legal.slice().sort((a,b) => RANK_VALUE[a.rank] - RANK_VALUE[b.rank])[0];
+  } else if (urgency >= 0.4) {
+    // Win opportunistically with strong cards (don't waste low trumps on uncertain wins)
+    if (winners.length) {
+      // Calculate: is the current best already high? If so, taking it costs more.
+      const bestStrength = cardStrength(currentBest.card, state.leadSuit, trump);
+      // If we can win cheaply (winner is not much stronger than what's needed), do it
+      const cheapestWin = winners.sort((a,b) => cardStrength(a, state.leadSuit, trump) - cardStrength(b, state.leadSuit, trump))[0];
+      const cost = cardStrength(cheapestWin, state.leadSuit, trump);
+      // If cheapest win is a low/mid card, take it. If it requires our highest cards, skip.
+      const isCheap = (cheapestWin.suit === state.leadSuit && RANK_VALUE[cheapestWin.rank] <= 11)
+                    || (cheapestWin.suit === trump && RANK_VALUE[cheapestWin.rank] <= 10);
+      if (isCheap) return cheapestWin;
+      // Otherwise dump junk
+    }
+    // Dump highest non-winning junk
+    const nonWinning = legal.filter(c => !beats(c, currentBest.card, state.leadSuit, trump));
+    if (nonWinning.length) {
+      const nonTrump = nonWinning.filter(c => c.suit !== trump);
+      const pool = nonTrump.length ? nonTrump : nonWinning;
+      return pool.sort((a,b) => RANK_VALUE[b.rank] - RANK_VALUE[a.rank])[0];
+    }
+    return legal[0];
+  } else {
+    // Low urgency: be picky. Only win if it's basically free (highest non-trump that beats with little cost).
+    if (winners.length) {
+      const cheapestWin = winners.sort((a,b) => cardStrength(a, state.leadSuit, trump) - cardStrength(b, state.leadSuit, trump))[0];
+      // Only take if very cheap (lead-suit J or lower, never use trump unless forced)
+      if (cheapestWin.suit === state.leadSuit && RANK_VALUE[cheapestWin.rank] <= 11) {
+        return cheapestWin;
+      }
+    }
+    // Otherwise dump highest non-winning junk
+    const nonWinning = legal.filter(c => !beats(c, currentBest.card, state.leadSuit, trump));
+    if (nonWinning.length) {
+      const nonTrump = nonWinning.filter(c => c.suit !== trump);
+      const pool = nonTrump.length ? nonTrump : nonWinning;
+      return pool.sort((a,b) => RANK_VALUE[b.rank] - RANK_VALUE[a.rank])[0];
+    }
+    // Forced: lowest winning
+    return legal.slice().sort((a,b) => cardStrength(a, state.leadSuit, trump) - cardStrength(b, state.leadSuit, trump))[0];
+  }
+}
+
+// Returns 1 if card a beats card b given lead suit and trump
+function beats(a, b, lead, trump) {
+  const sa = cardStrength(a, lead, trump);
+  const sb = cardStrength(b, lead, trump);
+  return sa > sb;
+}
+function cardStrength(c, lead, trump) {
+  // Trump > lead > others; if no trump (null), only lead suit can win
+  if (trump != null && c.suit === trump) return 1000 + RANK_VALUE[c.rank];
+  if (c.suit === lead) return 500 + RANK_VALUE[c.rank];
+  return RANK_VALUE[c.rank]; // can't win
+}
+
+function computeWinningCardSoFar() {
+  let best = state.playedThisTrick[0];
+  for (let i = 1; i < state.playedThisTrick.length; i++) {
+    const p = state.playedThisTrick[i];
+    if (beats(p.card, best.card, state.leadSuit, state.trumpSuit)) best = p;
+  }
+  return best;
+}
+
+function playCard(pid, card) {
+  // Remove from hand
+  const hand = state.hands[pid];
+  const idx = hand.findIndex(c => c.rank === card.rank && c.suit === card.suit);
+  if (idx < 0) return;
+  hand.splice(idx, 1);
+  // Set lead suit if first
+  if (state.playedThisTrick.length === 0) state.leadSuit = card.suit;
+  // Determine if this card is trump (and revealed = false during trick)
+  const isTrump = !state.noTrump && state.trumpSuit && card.suit === state.trumpSuit;
+  state.playedThisTrick.push({ playerId: pid, card, isTrump, revealed: !isTrump });
+  // Log: trump cards are obscured
+  if (isTrump) {
+    addLog(`${PLAYERS[pid].name} memainkan <b class="highlight">kartu truf</b>`);
+  } else {
+    addLog(`${PLAYERS[pid].name} memainkan <b class="highlight">${card.rank}${SUIT_SYMBOLS[card.suit]}</b>`);
+  }
+  render();
+  
+  if (state.playedThisTrick.length === 4) {
+    setTimeout(resolveTrick, 1100);
+  } else {
+    state.currentPlayer = nextClockwise(pid);
+    setTimeout(promptNextPlay, 600);
+  }
+}
+
+function resolveTrick() {
+  const winner = computeWinningCardSoFar();
+  
+  // Check if any trump cards were played (need to reveal)
+  const hadHiddenTrump = state.playedThisTrick.some(p => p.isTrump && !p.revealed);
+  
+  if (hadHiddenTrump) {
+    // Reveal phase: flip trump cards face-up with animation
+    state.playedThisTrick.forEach(p => {
+      if (p.isTrump && !p.revealed) {
+        const wrap = document.querySelector(`.played-card[data-pid="${p.playerId}"]`);
+        if (!wrap) return;
+        const cardEl = wrap.querySelector('.card');
+        wrap.classList.add('revealing');
+        // Mid-flip: swap from back to face
+        setTimeout(() => {
+          // Remove the trump-hidden badge first
+          const badge = cardEl.querySelector('.trump-hidden-badge');
+          if (badge) badge.remove();
+          // Switch from back to face
+          const isFace = ['J','Q','K','A'].includes(p.card.rank);
+          cardEl.classList.remove('card-back');
+          cardEl.classList.add(SUIT_COLOR[p.card.suit]);
+          if (isFace) cardEl.classList.add('face-card');
+          cardEl.innerHTML = renderCardInnerHTML(p.card);
+          p.revealed = true;
+        }, 350);
+      }
+    });
+    // After reveal animation, log all revealed trump cards and declare winner
+    setTimeout(() => {
+      state.playedThisTrick.forEach(p => {
+        if (p.isTrump) {
+          addLog(`<i style="opacity:0.75">↳ ${PLAYERS[p.playerId].name} ternyata main ${p.card.rank}${SUIT_SYMBOLS[p.card.suit]}</i>`);
+        }
+      });
+      declareTrickWinner(winner);
+    }, 900);
+  } else {
+    // No hidden trumps: declare winner immediately
+    setTimeout(() => declareTrickWinner(winner), 300);
+  }
+}
+
+function declareTrickWinner(winner) {
+  state.tricks[winner.playerId] += 1;
+  addLog(`<b class="highlight">${PLAYERS[winner.playerId].name}</b> menang ronde ${state.roundNum} dengan ${winner.card.rank}${SUIT_SYMBOLS[winner.card.suit]}`);
+  // glow winner
+  document.getElementById(`player-${winner.playerId}`).classList.add('winner-glow');
+  setTimeout(() => document.getElementById(`player-${winner.playerId}`).classList.remove('winner-glow'), 1200);
+  
+  // Sweep all played cards toward winner before clearing
+  document.querySelectorAll('.played-card').forEach(el => el.classList.add('sweeping'));
+  
+  renderStats();
+  
+  setTimeout(() => {
+    state.playedThisTrick = [];
+    state.leadSuit = null;
+    if (state.roundNum >= 13) {
+      endSession();
+    } else {
+      state.roundNum++;
+      document.getElementById('roundNum').textContent = state.roundNum;
+      state.currentPlayer = winner.playerId;
+      state.currentLeader = winner.playerId;
+      render();
+      promptNextPlay();
+    }
+  }, 1100);
+}
+
+// ============================================================
+// END SESSION / SCORING
+// ============================================================
+function endSession() {
+  state.phase = 'done';
+  document.getElementById('phaseLabel').textContent = 'HASIL';
+  
+  const totalCommit = state.commitments.reduce((a,b) => a+b, 0);
+  const mode = totalCommit > 13 ? 'atas' : (totalCommit < 13 ? 'bawah' : 'tepat-13');
+  
+  const deltas = [0,0,0,0];
+  for (let i = 0; i < 4; i++) {
+    const c = state.commitments[i];
+    const t = state.tricks[i];
+    if (t === c) {
+      // Success
+      if (c === 0) deltas[i] = 5;
+      else deltas[i] = c;
+    } else {
+      const diff = t - c;
+      if (mode === 'atas') {
+        if (diff > 0) deltas[i] = -diff;      // kelebihan ×(-1)
+        else deltas[i] = 2 * diff;             // kekurangan ×(-2): diff negative
+      } else if (mode === 'bawah') {
+        if (diff > 0) deltas[i] = -2 * diff;   // kelebihan ×(-2)
+        else deltas[i] = diff;                  // kekurangan ×(-1): diff negative
+      } else {
+        // mode 'tepat-13' shouldn't happen here (tie was resolved), but just in case treat like atas
+        if (diff > 0) deltas[i] = -diff;
+        else deltas[i] = 2 * diff;
+      }
+    }
+    state.totals[i] += deltas[i];
+  }
+  
+  // Build summary table
+  let rows = '';
+  PLAYERS.forEach(p => {
+    const i = p.id;
+    const c = state.commitments[i];
+    const t = state.tricks[i];
+    const d = deltas[i];
+    const success = t === c;
+    rows += `<tr>
+      <td class="name">${p.name}</td>
+      <td>${c}</td>
+      <td>${t}</td>
+      <td class="${d >= 0 ? 'delta-pos' : 'delta-neg'}">${d >= 0 ? '+' : ''}${d}</td>
+      <td>${state.totals[i]}</td>
+      <td>${success ? '✓' : '✗'}</td>
+    </tr>`;
+  });
+  
+  document.getElementById('roundTitle').textContent = `Sesi ${state.session} — Hasil`;
+  document.getElementById('roundSubtitle').textContent = `Main ${mode} · Total komitmen ${totalCommit} · Truf ${SUIT_NAMES[state.trumpSuit]} ${SUIT_SYMBOLS[state.trumpSuit]}`;
+  document.getElementById('roundContent').innerHTML = `
+    <table class="scoreboard">
+      <thead><tr><th>Pemain</th><th>Bid</th><th>Trik</th><th>Δ Sesi</th><th>Total</th><th>Status</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+  document.getElementById('roundOverlay').classList.add('show');
+}
+
+function nextSession() {
+  document.getElementById('roundOverlay').classList.remove('show');
+  state.session++;
+  document.getElementById('sessionNum').textContent = state.session;
+  state.hands = [[],[],[],[]];
+  state.noTrump = false;
+  // Clean up any leftover bid zones and confirm buttons
+  document.querySelectorAll('.bid-zone').forEach(el => el.remove());
+  for (let pid = 0; pid < 4; pid++) {
+    const cb = document.getElementById(`confirm-${pid}`);
+    if (cb) cb.innerHTML = '';
+  }
+  const sip = document.getElementById('sessionInfoPanel');
+  if (sip) sip.style.display = 'none';
+  document.getElementById('playAreaInfo').style.display = 'block';
+  document.getElementById('playAreaInfo').textContent = 'Fase Bidding';
+  setTimeout(startSession, 400);
+}
+
+function endTournament() {
+  document.getElementById('roundOverlay').classList.remove('show');
+  // Sort players by total score
+  const order = PLAYERS.map(p => ({...p, total: state.totals[p.id]}))
+    .sort((a,b) => b.total - a.total);
+  let rows = '';
+  order.forEach((p, idx) => {
+    rows += `<tr class="${idx===0 ? 'winner-row' : ''}">
+      <td>${idx+1}</td>
+      <td class="name">${p.name}${idx===0 ? ' 👑' : ''}</td>
+      <td>${p.total}</td>
+    </tr>`;
+  });
+  document.getElementById('endContent').innerHTML = `
+    <p style="text-align:center;margin-bottom:16px;">
+      Total ${state.session} sesi dimainkan.
+    </p>
+    <table class="scoreboard">
+      <thead><tr><th>Peringkat</th><th>Pemain</th><th>Skor Akhir</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+  document.getElementById('endOverlay').classList.add('show');
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function render() {
+  renderHands();
+  renderPlayedCards();
+  renderStats();
+}
+
+function renderHands() {
+  // Human hand (south) - face up
+  const south = document.getElementById('hand-0');
+  south.innerHTML = '';
+  state.hands[0].forEach((c, i) => {
+    const el = document.createElement('div');
+    const isFace = ['J','Q','K','A'].includes(c.rank);
+    el.className = `card ${SUIT_COLOR[c.suit]}${isFace ? ' face-card' : ''}`;
+    el.innerHTML = renderCardInnerHTML(c);
+    south.appendChild(el);
+  });
+  // refresh playability if it's human's turn during play phase
+  if (state.phase === 'playing' && state.currentPlayer === 0) refreshHumanPlayability();
+  
+  // Bot hands - face down
+  for (let pid = 1; pid <= 3; pid++) {
+    const box = document.getElementById(`hand-${pid}`);
+    box.innerHTML = '';
+    state.hands[pid].forEach(() => {
+      const el = document.createElement('div');
+      el.className = 'card card-back';
+      box.appendChild(el);
+    });
+  }
+}
+
+function renderCardInnerHTML(c) {
+  const isFace = ['J','Q','K','A'].includes(c.rank);
+  const centerContent = isFace ? c.rank : SUIT_SYMBOLS[c.suit];
+  const faceClass = isFace ? 'face-card' : '';
+  return `
+    <div class="card-content">
+      <div class="card-tl">
+        <div class="r">${c.rank}</div>
+        <div class="s">${SUIT_SYMBOLS[c.suit]}</div>
+      </div>
+      <div class="card-center">${centerContent}</div>
+      <div class="card-br">
+        <div class="r">${c.rank}</div>
+        <div class="s">${SUIT_SYMBOLS[c.suit]}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderPlayedCards() {
+  const playArea = document.getElementById('playArea');
+  // Remove existing played card elements
+  playArea.querySelectorAll('.played-card').forEach(el => el.remove());
+  state.playedThisTrick.forEach(p => {
+    const wrap = document.createElement('div');
+    wrap.className = `played-card pos-${PLAYERS[p.playerId].pos}`;
+    wrap.dataset.pid = p.playerId;
+    const cardEl = document.createElement('div');
+    
+    if (p.revealed) {
+      const isFace = ['J','Q','K','A'].includes(p.card.rank);
+      cardEl.className = `card ${SUIT_COLOR[p.card.suit]}${isFace ? ' face-card' : ''}`;
+      cardEl.style.marginLeft = '0';
+      cardEl.innerHTML = renderCardInnerHTML(p.card);
+    } else {
+      // Trump card: face-down
+      cardEl.className = 'card card-back';
+      cardEl.style.marginLeft = '0';
+      // Add a golden badge to hint it's a trump card
+      const badge = document.createElement('div');
+      badge.className = 'trump-hidden-badge';
+      badge.textContent = '?';
+      badge.title = 'Kartu truf — tertutup sampai trik selesai';
+      cardEl.appendChild(badge);
+    }
+    wrap.appendChild(cardEl);
+    
+    // Label below card with strong background for visibility
+    const label = document.createElement('div');
+    label.className = 'player-label';
+    label.textContent = PLAYERS[p.playerId].name;
+    wrap.appendChild(label);
+    playArea.appendChild(wrap);
+  });
+}
+
+function renderStats() {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById(`score-${i}`).textContent = state.totals[i];
+    const b = state.bids[i];
+    // During play, show ONLY the commitment number (no suit) for added suspense
+    const bidText = b ? `${state.commitments[i]}` : '—';
+    document.getElementById(`bid-${i}`).textContent = bidText;
+    document.getElementById(`tricks-${i}`).textContent = state.tricks[i];
+  }
+}
+
+function highlightActive(pid) {
+  for (let i = 0; i < 4; i++) {
+    const el = document.getElementById(`player-${i}`);
+    el.classList.toggle('active', i === pid);
+  }
+}
+
+// ============================================================
+// LOG / BANNER / OVERLAYS
+// ============================================================
+// Log is collected silently during play; users open it from the round summary modal.
+// state.log holds entries in chronological order (newest pushed to end), with
+// session boundaries already inferred from state.session-level resets.
+function addLog(html) {
+  if (!state.log) state.log = [];
+  state.log.push(html);
+  // Cap at 500 entries to avoid memory bloat over many sessions
+  if (state.log.length > 500) state.log.splice(0, state.log.length - 500);
+}
+
+function showBanner(text) {
+  const el = document.getElementById('banner');
+  el.textContent = text;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 1500);
+}
+
+function closeOverlay(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+function showRules() {
+  document.getElementById('rulesOverlay').classList.add('show');
+}
+
+function openLogViewer() {
+  const overlay = document.getElementById('logViewerOverlay');
+  const content = document.getElementById('logViewerContent');
+  const subtitle = document.getElementById('logViewerSubtitle');
+  subtitle.textContent = `Sesi ${state.session} · ${state.log.length} catatan`;
+  if (state.log.length === 0) {
+    content.innerHTML = '<div style="text-align:center;padding:20px;opacity:0.6;">Belum ada catatan.</div>';
+  } else {
+    // Show most recent first so latest activity is on top
+    const entries = state.log.slice().reverse();
+    content.innerHTML = entries.map(l =>
+      `<div style="padding:6px 4px;border-bottom:1px solid rgba(244,234,213,0.07);">${l}</div>`
+    ).join('');
+  }
+  overlay.classList.add('show');
+}
+
+function resetGame() {
+  document.getElementById('endOverlay').classList.remove('show');
+  document.getElementById('roundOverlay').classList.remove('show');
+  state = freshState();
+  document.getElementById('sessionNum').textContent = '1';
+  document.getElementById('playAreaInfo').style.display = 'block';
+  const sip = document.getElementById('sessionInfoPanel');
+  if (sip) sip.style.display = 'none';
+  startSession();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+state = freshState();
+startSession();
+</script>
+</body>
+</html>

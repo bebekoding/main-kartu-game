@@ -1,0 +1,28 @@
+{
+  "rules": {
+    "rooms": {
+      ".read": true,
+      "$roomCode": {
+        ".read": true,
+        ".write": true,
+        ".validate": "$roomCode.matches(/^[A-Z0-9]{4,6}$/)"
+      }
+    },
+    "accounts": {
+      ".read": true,
+      "$username": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "leaderboards": {
+      ".read": true,
+      "$game": {
+        "$username": {
+          ".read": true,
+          ".write": true
+        }
+      }
+    }
+  }
+}
