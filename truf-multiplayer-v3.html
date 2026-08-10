@@ -29,7 +29,9 @@
     serverTimestamp, child, push, remove, goOnline, goOffline
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
   import {
-    getAuth, signInAnonymously, onAuthStateChanged
+    getAuth, onAuthStateChanged, signOut,
+    signInWithEmailAndPassword, createUserWithEmailAndPassword,
+    updatePassword, reauthenticateWithCredential, EmailAuthProvider
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
   const firebaseConfig = {
@@ -46,42 +48,48 @@
   const db = getDatabase(app);
   const auth = getAuth(app);
 
+  // SECURITY: identity comes from Firebase Authentication, so the database
+  // rules get a server-issued, unforgeable auth.uid. Rules use it to enforce
+  // "you may only write your own seat" and "only players in this room may
+  // write its game state".
+  //
+  // Credentials live in Firebase Auth (hashed + salted server-side), NOT in
+  // our database. /accounts holds profile data only — no password field.
+  // Accounts sign in with a synthetic email derived from the username; see
+  // authEmailFor() in the main script, which must stay in sync with the
+  // mapping used by the account migration.
   window.firebase = {
     db, ref, set, get, update, onValue, onChildAdded, onDisconnect,
     serverTimestamp, child, push, remove, goOnline, goOffline,
-    auth, authUid: null
+    auth, authUid: null, currentUser: null,
+    signOut: () => signOut(auth),
+    signIn: (email, password) => signInWithEmailAndPassword(auth, email, password),
+    signUp: (email, password) => createUserWithEmailAndPassword(auth, email, password),
+    updatePassword: (newPassword) => updatePassword(auth.currentUser, newPassword),
+    reauthenticate: (email, password) =>
+      reauthenticateWithCredential(auth.currentUser,
+        EmailAuthProvider.credential(email, password)),
   };
 
-  // SECURITY: every client signs in anonymously so the database rules get a
-  // server-issued, unforgeable auth.uid. That uid is the player's identity —
-  // rules use it to enforce "you may only write your own seat" and "only
-  // players in this room may write its game state". Without this, the rules
-  // have no way to tell a real player from someone poking the REST API.
-  //
-  // The anonymous uid persists in IndexedDB, so a refresh keeps the same
-  // identity and reconnect/rejoin still works.
-  const startApp = () => {
-    if (window.__mkAppStarted) return;
-    window.__mkAppStarted = true;
-    window.dispatchEvent(new Event('firebase-ready'));
-  };
-
+  // Firebase persists the session itself, so a refresh keeps the same identity
+  // and reconnect/rejoin still works. The app only starts once the initial
+  // auth state is known, otherwise init() could run with no identity yet.
+  let bootstrapped = false;
   onAuthStateChanged(auth, (user) => {
-    if (user) {
-      window.firebase.authUid = user.uid;
-      startApp();
+    // Sesi anonim peninggalan versi sebelumnya harus dibuang. Kalau dibiarkan,
+    // pemain akan terbawa identitas anonim sementara layar menampilkan username
+    // dari localStorage — tampak sudah login padahal bukan akunnya, dan setiap
+    // tulisan ke akunnya akan ditolak rules.
+    // Diperlakukan sebagai belum login seketika — tidak menunggu hasil signOut,
+    // supaya kegagalan jaringan tidak membuat aplikasi menggantung tanpa start.
+    if (user && user.isAnonymous) signOut(auth).catch(() => {});
+    const real = (user && !user.isAnonymous) ? user : null;
+    window.firebase.authUid = real ? real.uid : null;
+    window.firebase.currentUser = real;
+    if (!bootstrapped) {
+      bootstrapped = true;
+      window.dispatchEvent(new Event('firebase-ready'));
     }
-  });
-
-  signInAnonymously(auth).catch((e) => {
-    console.error('[auth] anonymous sign-in failed:', e);
-    // Fail loudly: without an auth token every database write will be denied,
-    // so a silent failure would look like "the game is broken at random".
-    const msg = (e && e.code === 'auth/operation-not-allowed')
-      ? 'Login anonim belum diaktifkan di Firebase Console (Authentication → Sign-in method → Anonymous).'
-      : ('Gagal terhubung ke server autentikasi: ' + (e && e.message ? e.message : e));
-    window.__mkAuthError = msg;
-    startApp();
   });
 </script>
 
@@ -5491,6 +5499,9 @@
         <span class="go-arrow">→</span>
       </button>
     </div>
+    <div style="text-align:center;margin-top:14px;">
+      <button class="link-btn" id="openChangePwBtn">🔒 Ganti password</button>
+    </div>
   </div>
 
   <!-- View: Lobby (initial) -->
@@ -5683,6 +5694,33 @@
   <button class="tebak-end-float-btn tebak-standings-float-btn" id="tebakStandingsFloatBtn" type="button">🏆 Klasemen</button>
 </div>
 <!-- Tebak standings modal -->
+<!-- Ganti password. Dipakai dua mode:
+     - wajib (mustChangePassword): tanpa tombol tutup, tidak bisa dilewati
+     - sukarela: bisa ditutup, meminta password lama untuk reauth -->
+<div class="modal-overlay" id="changePwModal">
+  <div class="modal-card" style="max-width:420px;">
+    <div class="modal-title" id="changePwTitle">Ganti Password</div>
+    <div class="modal-subtitle" id="changePwSub" style="text-align:left;"></div>
+    <div class="form-group" id="changePwOldGroup">
+      <label for="changePwOld">Password lama</label>
+      <input type="password" id="changePwOld" autocomplete="current-password">
+    </div>
+    <div class="form-group">
+      <label for="changePwNew">Password baru (minimal 8 karakter)</label>
+      <input type="password" id="changePwNew" autocomplete="new-password">
+    </div>
+    <div class="form-group">
+      <label for="changePwConfirm">Ulangi password baru</label>
+      <input type="password" id="changePwConfirm" autocomplete="new-password">
+    </div>
+    <div id="changePwError" class="status-message error hidden"></div>
+    <div class="modal-actions" style="justify-content:center;margin-top:14px;">
+      <button class="btn btn-primary" id="changePwSubmitBtn">Simpan Password Baru</button>
+      <button class="btn" id="changePwCancelBtn">Batal</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="tebakStandingsModal">
   <div class="modal-card" style="max-width:520px;">
     <button class="remi-end-min-btn" id="tebakStandingsMinBtn">— Sembunyikan</button>
@@ -7217,6 +7255,110 @@ async function verifyAdminPassword(password) {
   }
 }
 
+// ============================================================
+// GANTI PASSWORD
+// Password dipegang Firebase Auth, jadi perubahan dilakukan lewat
+// updatePassword(). Untuk aksi sensitif Firebase minta login yang masih
+// "segar"; kalau tokennya sudah lama, kita minta password lama lalu reauth.
+// ============================================================
+let _changePwCtx = null; // { key, name, username, forced }
+
+function changePwError(msg) {
+  const el = document.getElementById('changePwError');
+  if (!el) return;
+  if (msg) { el.textContent = msg; el.classList.remove('hidden'); }
+  else { el.textContent = ''; el.classList.add('hidden'); }
+}
+
+function openChangePwModal({ key, name, username, forced, needOld, subtitle }) {
+  _changePwCtx = { key, name, username, forced: !!forced };
+  const modal = document.getElementById('changePwModal');
+  document.getElementById('changePwTitle').textContent =
+    forced ? 'Ganti Password Dulu' : 'Ganti Password';
+  document.getElementById('changePwSub').textContent = subtitle || '';
+  document.getElementById('changePwOldGroup').style.display = needOld ? '' : 'none';
+  document.getElementById('changePwCancelBtn').style.display = forced ? 'none' : '';
+  ['changePwOld', 'changePwNew', 'changePwConfirm'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  changePwError('');
+  modal.classList.add('show');
+}
+
+function closeChangePwModal() {
+  const modal = document.getElementById('changePwModal');
+  if (modal) modal.classList.remove('show');
+  _changePwCtx = null;
+}
+
+// Wajib: password akun ini termasuk yang bocor dan belum diganti.
+function showForcedPasswordChange({ key, name, username }) {
+  document.getElementById('authView').classList.add('hidden');
+  openChangePwModal({
+    key, name, username, forced: true, needOld: false,
+    subtitle: 'Database sempat bisa diakses pihak luar, jadi password lama harus dianggap bocor. Buat password baru untuk melanjutkan.',
+  });
+}
+
+// Sukarela: dari tombol di layar pilih game.
+function showVoluntaryPasswordChange() {
+  if (!myUsername) return;
+  openChangePwModal({
+    key: sanitizeKey(String(myUsername).toLowerCase()),
+    name: myNickname, username: myUsername,
+    forced: false, needOld: true,
+    subtitle: 'Masukkan password lama untuk memastikan ini benar kamu.',
+  });
+}
+
+async function submitChangePw() {
+  const ctx = _changePwCtx;
+  if (!ctx) return;
+  const oldPw = (document.getElementById('changePwOld').value || '').trim();
+  const newPw = (document.getElementById('changePwNew').value || '').trim();
+  const confirmPw = (document.getElementById('changePwConfirm').value || '').trim();
+  const oldShown = document.getElementById('changePwOldGroup').style.display !== 'none';
+  changePwError('');
+
+  if (newPw.length < 8) { changePwError('Password baru minimal 8 karakter'); return; }
+  if (newPw !== confirmPw) { changePwError('Ulangi password tidak sama'); return; }
+  if (oldShown && !oldPw) { changePwError('Password lama harus diisi'); return; }
+  if (oldShown && oldPw === newPw) { changePwError('Password baru harus berbeda dari yang lama'); return; }
+
+  const btn = document.getElementById('changePwSubmitBtn');
+  btn.disabled = true; btn.textContent = 'Menyimpan...';
+  try {
+    if (oldShown) {
+      await fb.reauthenticate(authEmailFor(ctx.username), oldPw);
+    }
+    await fb.updatePassword(newPw);
+    // Tandai sudah beres supaya tidak dipaksa lagi di login berikutnya.
+    try {
+      await fb.update(fb.ref(fb.db, `accounts/${ctx.key}`), { mustChangePassword: null });
+    } catch (e) { console.warn('[pw] gagal menghapus flag mustChangePassword:', e); }
+    closeChangePwModal();
+    showGameToast('Password berhasil diganti', 'good', 3500);
+    if (ctx.forced) finishLogin({ name: ctx.name, username: ctx.username });
+  } catch (e) {
+    const code = e && e.code;
+    if (code === 'auth/requires-recent-login') {
+      // Token sudah terlalu lama untuk aksi sensitif — minta password lama.
+      document.getElementById('changePwOldGroup').style.display = '';
+      changePwError('Untuk keamanan, masukkan password lama lalu simpan lagi.');
+    } else if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+      changePwError('Password lama salah');
+    } else if (code === 'auth/weak-password') {
+      changePwError('Password baru terlalu lemah');
+    } else if (code === 'auth/too-many-requests') {
+      changePwError('Terlalu banyak percobaan. Coba lagi beberapa menit.');
+    } else {
+      changePwError('Gagal mengganti password: ' + (e && e.message ? e.message : e));
+    }
+  } finally {
+    btn.disabled = false; btn.textContent = 'Simpan Password Baru';
+  }
+}
+
 // Drop the admin capability (logout / leaving the admin panel).
 function clearAdminSession() {
   const fb = window.firebase;
@@ -7300,6 +7442,22 @@ function showAdminView() {
 // Sanitise a Firebase key (username used as key — strip forbidden chars)
 function sanitizeKey(s) { return s.replace(/[.#$\/\[\]]/g, '_'); }
 
+// Akun memakai username, tapi Firebase Auth butuh email. Kita buat email
+// sintetis yang deterministik dari username.
+//
+// PENTING: pemetaan ini harus sama persis dengan yang dipakai script migrasi
+// akun (migrate_accounts.py → auth_email). Kalau berbeda, pemain lama tidak
+// akan bisa login karena email yang dibentuk tidak cocok dengan yang terdaftar.
+const AUTH_EMAIL_DOMAIN = '@mainkartu.local';
+function authEmailFor(username) {
+  const key = sanitizeKey(String(username || '').toLowerCase());
+  return key.replace(/[^a-z0-9._-]/g, '-') + AUTH_EMAIL_DOMAIN;
+}
+
+// Pesan error login diseragamkan supaya tidak membocorkan apakah suatu
+// username terdaftar atau tidak.
+const LOGIN_FAIL_MSG = 'Login gagal, belengnya! tanya Ivan nanti di cek loginmu';
+
 async function doRegister() {
   const name = (document.getElementById('regName').value || '').trim();
   const username = (document.getElementById('regUsername').value || '').trim();
@@ -7312,14 +7470,24 @@ async function doRegister() {
   if (password.length < 8) { authSetError('Password minimal 8 karakter'); return; }
   const key = sanitizeKey(username.toLowerCase());
   try {
-    const snap = await fb.get(fb.ref(fb.db, `accounts/${key}`));
-    if (snap.exists()) { authSetError('Username sudah digunakan, pilih yang lain'); return; }
-    const uid = 'u_' + Math.random().toString(36).slice(2, 10) + '_' + Date.now().toString(36);
+    // Keunikan username ditegakkan oleh Firebase Auth: email sintetisnya
+    // bentrok kalau username sudah dipakai. Tidak perlu (dan tidak boleh)
+    // membaca /accounts dulu — pendaftar belum punya token.
+    const cred = await fb.signUp(authEmailFor(username), password);
     await fb.set(fb.ref(fb.db, `accounts/${key}`), {
-      name, username, password, uid, createdAt: Date.now()
+      name, username, authUid: cred.user.uid, createdAt: Date.now()
     });
-    finishLogin({ name, username, uid });
-  } catch (e) { authSetError('Gagal mendaftar: ' + e.message); }
+    myUid = cred.user.uid;
+    finishLogin({ name, username });
+  } catch (e) {
+    if (e && e.code === 'auth/email-already-in-use') {
+      authSetError('Username sudah digunakan, pilih yang lain');
+    } else if (e && e.code === 'auth/weak-password') {
+      authSetError('Password terlalu lemah, minimal 8 karakter');
+    } else {
+      authSetError('Gagal mendaftar: ' + (e && e.message ? e.message : e));
+    }
+  }
 }
 
 async function doLogin() {
@@ -7327,37 +7495,60 @@ async function doLogin() {
   const password = (document.getElementById('loginPassword').value || '').trim();
   authSetError('');
   if (!username || !password) { authSetError('Username dan password harus diisi'); return; }
-  // Admin shortcut — password verified via RTDB rules challenge (no client secret)
+  // Admin: masuk sebagai akun Firebase Auth dulu supaya punya auth.uid, baru
+  // klaim capability admin lewat rules challenge (hash, bukan password mentah).
   if (username === ADMIN_USERNAME) {
-    const ok = await verifyAdminPassword(password);
-    if (ok) { showAdminView(); return; }
-    authSetError('Login gagal, belengnya! tanya Ivan nanti di cek loginmu');
+    try {
+      const cred = await fb.signIn(authEmailFor(ADMIN_USERNAME), password);
+      myUid = cred.user.uid;
+    } catch (e) { authSetError(LOGIN_FAIL_MSG); return; }
+    if (await verifyAdminPassword(password)) { showAdminView(); return; }
+    authSetError(LOGIN_FAIL_MSG);
     return;
   }
   const key = sanitizeKey(username.toLowerCase());
   try {
-    const snap = await fb.get(fb.ref(fb.db, `accounts/${key}`));
-    if (!snap.exists()) { authSetError('Login gagal, belengnya! tanya Ivan nanti di cek loginmu'); return; }
-    const acc = snap.val();
-    if (acc.password !== password) { authSetError('Login gagal, belengnya! tanya Ivan nanti di cek loginmu'); return; }
-    // Remember Me: save credentials to localStorage so the login form is pre-filled next time.
+    // Password diverifikasi oleh Firebase Auth — tidak pernah dibaca dari
+    // database, dan database memang tidak lagi menyimpannya.
+    const cred = await fb.signIn(authEmailFor(username), password);
+    myUid = cred.user.uid;
+
+    // Remember Me sekarang hanya menyimpan username. Password TIDAK pernah
+    // ditulis ke localStorage lagi; sesi sudah dijaga Firebase sendiri.
     const remember = document.getElementById('rememberMe');
     if (remember && remember.checked) {
-      try { localStorage.setItem('mk_remember', JSON.stringify({ username, password })); } catch (e) {}
+      try { localStorage.setItem('mk_remember', JSON.stringify({ username })); } catch (e) {}
     } else {
       try { localStorage.removeItem('mk_remember'); } catch (e) {}
     }
-    finishLogin({ name: acc.name, username: acc.username, uid: acc.uid });
-  } catch (e) { authSetError('Gagal login: ' + e.message); }
+
+    const snap = await fb.get(fb.ref(fb.db, `accounts/${key}`));
+    const acc = snap.exists() ? snap.val() : { name: username, username };
+
+    // Password lama sudah bocor: paksa ganti sebelum bisa masuk lobby.
+    if (acc.mustChangePassword) {
+      showForcedPasswordChange({ key, name: acc.name || username, username: acc.username || username });
+      return;
+    }
+    finishLogin({ name: acc.name || username, username: acc.username || username });
+  } catch (e) {
+    const code = e && e.code;
+    if (code === 'auth/too-many-requests') {
+      authSetError('Terlalu banyak percobaan gagal. Coba lagi beberapa menit.');
+    } else if (code && code.startsWith('auth/')) {
+      authSetError(LOGIN_FAIL_MSG);
+    } else {
+      authSetError('Gagal login: ' + (e && e.message ? e.message : e));
+    }
+  }
 }
 
-function finishLogin({ name, username, uid }) {
-  // NOTE: identity (myUid) is the Firebase auth uid set in init() — NOT the
-  // `uid` field stored on the account. That field is world-readable, so
-  // trusting it let anyone impersonate a player by writing their seat.
-  // It is kept in the session blob only for backwards compatibility.
+function finishLogin({ name, username }) {
+  // Identitas (myUid) = uid Firebase Auth. Sesi login dijaga Firebase sendiri;
+  // blob di localStorage hanya menyimpan profil tampilan, bukan kredensial.
+  if (!myUid) myUid = (window.firebase && window.firebase.authUid) || null;
   try {
-    localStorage.setItem('mk_session', JSON.stringify({ name, username, uid }));
+    localStorage.setItem('mk_session', JSON.stringify({ name, username }));
   } catch (e) {}
   myNickname = username;   // display name in-game = login USERNAME
   myUsername = username;
@@ -7392,9 +7583,10 @@ function finishLogin({ name, username, uid }) {
 function doLogout() {
   clearAdminSession();
   try { localStorage.removeItem('mk_session'); } catch (e) {}
-  // Keep myUid: it is the anonymous auth identity, not the game account.
-  // Clearing it would leave the client unable to write anything at all.
+  try { fb.signOut(); } catch (e) {}
+  myUid = null;
   myNickname = '';
+  myUsername = '';
   showAuthView();
   // Reset to login tab
   document.getElementById('loginForm').style.display = '';
@@ -7952,6 +8144,17 @@ function initAuth() {
   }
   document.getElementById('adminBackBtn').onclick = doLogout;
   document.getElementById('logoutBtn').onclick = doLogout;
+  // Ganti password
+  const cpSubmit = document.getElementById('changePwSubmitBtn');
+  if (cpSubmit) cpSubmit.onclick = submitChangePw;
+  const cpCancel = document.getElementById('changePwCancelBtn');
+  if (cpCancel) cpCancel.onclick = closeChangePwModal;
+  const cpOpen = document.getElementById('openChangePwBtn');
+  if (cpOpen) cpOpen.onclick = showVoluntaryPasswordChange;
+  ['changePwOld','changePwNew','changePwConfirm'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') submitChangePw(); });
+  });
   // Enter key support
   ['loginUsername','loginPassword'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
@@ -7960,27 +8163,36 @@ function initAuth() {
     document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
   });
 
-  // Check for existing session
-  try {
-    const saved = localStorage.getItem('mk_session');
-    if (saved) {
-      const sess = JSON.parse(saved);
-      if (sess && sess.uid && sess.name) {
-        finishLogin(sess);
-        return; // skip showing auth screen
-      }
+  // Pemulihan sesi: yang menentukan adalah status Firebase Auth, bukan isi
+  // localStorage. Blob mk_session hanya dipakai untuk nama tampilan supaya
+  // tidak perlu menunggu pembacaan database.
+  if (window.firebase && window.firebase.authUid) {
+    myUid = window.firebase.authUid;
+    let sess = null;
+    try { sess = JSON.parse(localStorage.getItem('mk_session') || 'null'); } catch (e) {}
+    if (sess && sess.username) {
+      finishLogin({ name: sess.name || sess.username, username: sess.username });
+      // Kalau password akun masih yang lama/bocor, tetap paksa ganti.
+      const key = sanitizeKey(String(sess.username).toLowerCase());
+      fb.get(fb.ref(fb.db, `accounts/${key}`)).then(snap => {
+        const acc = snap.exists() ? snap.val() : null;
+        if (acc && acc.mustChangePassword) {
+          showForcedPasswordChange({ key, name: acc.name || sess.username, username: acc.username || sess.username });
+        }
+      }).catch(() => {});
+      return; // skip showing auth screen
     }
-  } catch (e) {}
-  // No session — restore "Remember Me" credentials into the login form.
+  }
+  // Belum ada sesi — isi ulang username saja. Password TIDAK pernah disimpan
+  // di perangkat lagi (dulu tersimpan plaintext di localStorage).
   try {
     const rem = localStorage.getItem('mk_remember');
     if (rem) {
       const { username, password } = JSON.parse(rem);
+      if (password) localStorage.setItem('mk_remember', JSON.stringify({ username }));
       const uEl = document.getElementById('loginUsername');
-      const pEl = document.getElementById('loginPassword');
       const rEl = document.getElementById('rememberMe');
       if (uEl && username) uEl.value = username;
-      if (pEl && password) pEl.value = password;
       if (rEl) rEl.checked = true;
     }
   } catch (e) {}
@@ -7996,21 +8208,8 @@ function init() {
   // Previously this was a random client-generated id kept in sessionStorage.
   // That id was also stored in /accounts and world-readable, so anyone could
   // read another player's uid and overwrite their seat to kick them out.
-  if (window.__mkAuthError) {
-    setConnectionStatus(window.__mkAuthError, 'error');
-    const cfgErr = document.getElementById('configError');
-    if (cfgErr) {
-      cfgErr.textContent = window.__mkAuthError;
-      cfgErr.classList.remove('hidden');
-    }
-    return;
-  }
+  // null saat belum login — initAuth() akan menampilkan layar masuk.
   myUid = (window.firebase && window.firebase.authUid) || null;
-  if (!myUid) {
-    setConnectionStatus('Gagal mendapatkan identitas dari server', 'error');
-    return;
-  }
-  try { sessionStorage.setItem('truf_uid', myUid); } catch (e) {}
 
   // Restore nickname from sessionStorage (only this tab)
   try {
