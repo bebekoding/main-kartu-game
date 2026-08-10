@@ -1,41 +1,74 @@
 {
   "rules": {
+    ".read": false,
+    ".write": false,
+
     "rooms": {
       ".read": true,
+
       "$roomCode": {
-        ".read": true,
-        ".write": true,
-        ".validate": "$roomCode.matches(/^[A-Z0-9]{4,6}$/)"
+        ".write": "auth != null && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && ( (!data.exists() && newData.child('host').val() === auth.uid) || (!newData.exists() && (data.child('host').val() === auth.uid || root.child('adminSessions').child(auth.uid).exists())) )",
+
+        "players": {
+          "$playerUid": {
+            ".write": "auth != null && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && ( $playerUid === auth.uid || root.child('rooms').child($roomCode).child('host').val() === auth.uid || root.child('adminSessions').child(auth.uid).exists() || (!newData.exists() && (data.child('isBot').val() === true || data.child('disconnected').val() === true || data.child('disconnectedAt').exists())) )"
+          }
+        },
+
+        "chat": {
+          "$msgId": {
+            ".write": "auth != null && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && (!data.exists() || root.child('adminSessions').child(auth.uid).exists())"
+          }
+        },
+
+        "voice": {
+          "$voiceUid": {
+            ".write": "auth != null && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && ($voiceUid === auth.uid || root.child('adminSessions').child(auth.uid).exists())"
+          }
+        },
+
+        "signals": {
+          "$toUid": {
+            ".write": "auth != null && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && $toUid === auth.uid",
+            "$signalId": {
+              ".write": "auth != null && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && (!data.exists() || $toUid === auth.uid)"
+            }
+          }
+        },
+
+        "$gameState": {
+          ".write": "auth != null && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && ( root.child('rooms').child($roomCode).child('players').child(auth.uid).exists() || root.child('adminSessions').child(auth.uid).exists() )"
+        }
       }
     },
+
     "accounts": {
-      ".read": true,
+      ".read": "auth != null",
       "$username": {
-        ".read": true,
-        ".write": true
+        ".write": "auth != null && (!data.exists() || root.child('adminSessions').child(auth.uid).exists())"
       }
     },
+
     "leaderboards": {
       ".read": true,
       "$game": {
         "$username": {
-          ".read": true,
-          ".write": true
+          ".write": "auth != null"
         }
       }
     },
+
     "config": {
       "adminHash": {
         ".read": false,
         ".write": false
       }
     },
-    "adminChallenge": {
-      ".read": false,
-      "$sessionId": {
-        ".read": false,
-        ".write": "newData.child('hash').isString() && newData.child('hash').val() === root.child('config/adminHash').val() && $sessionId.matches(/^[a-zA-Z0-9_-]{8,64}$/)",
-        ".validate": "newData.hasChildren(['hash', 'ts'])"
+
+    "adminSessions": {
+      "$authUid": {
+        ".read": "auth != null && auth.uid === $authUid",
+        ".write": "auth != null && auth.uid === $authUid && ( !newData.exists() || newData.child('hash').val() === root.child('config/adminHash').val() )"
       }
     }
   }

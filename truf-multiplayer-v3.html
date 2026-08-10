@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Resolve all relative asset paths (cards/, *.mp3, *.mp4, etc.) against the
+     site root — matters for deep-linked room URLs like /truf/ABC123 where
+     "cards/K-H.png" would otherwise resolve to /truf/cards/K-H.png. -->
+<base href="/">
 <title>Main Kartu — Permainan Kartu Multiplayer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,6 +28,9 @@
     getDatabase, ref, set, get, update, onValue, onChildAdded, onDisconnect,
     serverTimestamp, child, push, remove, goOnline, goOffline
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import {
+    getAuth, signInAnonymously, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDhLQA2QO16jafrUoHIWePVWIKs2xQDyD0",
@@ -37,12 +44,45 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
+  const auth = getAuth(app);
 
   window.firebase = {
     db, ref, set, get, update, onValue, onChildAdded, onDisconnect,
-    serverTimestamp, child, push, remove, goOnline, goOffline
+    serverTimestamp, child, push, remove, goOnline, goOffline,
+    auth, authUid: null
   };
-  window.dispatchEvent(new Event('firebase-ready'));
+
+  // SECURITY: every client signs in anonymously so the database rules get a
+  // server-issued, unforgeable auth.uid. That uid is the player's identity —
+  // rules use it to enforce "you may only write your own seat" and "only
+  // players in this room may write its game state". Without this, the rules
+  // have no way to tell a real player from someone poking the REST API.
+  //
+  // The anonymous uid persists in IndexedDB, so a refresh keeps the same
+  // identity and reconnect/rejoin still works.
+  const startApp = () => {
+    if (window.__mkAppStarted) return;
+    window.__mkAppStarted = true;
+    window.dispatchEvent(new Event('firebase-ready'));
+  };
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      window.firebase.authUid = user.uid;
+      startApp();
+    }
+  });
+
+  signInAnonymously(auth).catch((e) => {
+    console.error('[auth] anonymous sign-in failed:', e);
+    // Fail loudly: without an auth token every database write will be denied,
+    // so a silent failure would look like "the game is broken at random".
+    const msg = (e && e.code === 'auth/operation-not-allowed')
+      ? 'Login anonim belum diaktifkan di Firebase Console (Authentication → Sign-in method → Anonymous).'
+      : ('Gagal terhubung ke server autentikasi: ' + (e && e.message ? e.message : e));
+    window.__mkAuthError = msg;
+    startApp();
+  });
 </script>
 
 <style>
@@ -7153,22 +7193,35 @@ async function sha256Hex(str) {
     .map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Verify admin password by writing a hash-challenge to RTDB.
-// Rules only allow the write if hash === root.child('config/adminHash').
-// Returns true on success, false on failure.
+// Verify the admin password by writing a hash-challenge to RTDB.
+// Rules only accept the write when hash === /config/adminHash, so a wrong
+// password comes back as PERMISSION_DENIED and never reveals the real hash.
+//
+// The record is written at /adminSessions/{auth.uid} and KEPT for the session:
+// it doubles as the admin capability that the rules check before allowing
+// privileged operations (deleting other people's rooms, editing accounts).
+// It is removed on disconnect and on logout so it cannot outlive the session.
 async function verifyAdminPassword(password) {
+  const fb = window.firebase;
+  if (!fb || !fb.authUid) return false;
   try {
     const hash = await sha256Hex(ADMIN_SALT + ':' + password);
-    const sessionId = 'c' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
-    const fb = window.firebase;
-    await fb.set(fb.ref(fb.db, `adminChallenge/${sessionId}`), { hash, ts: fb.serverTimestamp() });
-    // Success — clean up challenge node (best-effort, ignore errors)
-    fb.remove(fb.ref(fb.db, `adminChallenge/${sessionId}`)).catch(() => {});
+    const sessRef = fb.ref(fb.db, `adminSessions/${fb.authUid}`);
+    await fb.set(sessRef, { hash, ts: fb.serverTimestamp() });
+    // Drop the capability automatically if this client goes away.
+    try { fb.onDisconnect(sessRef).remove(); } catch (e) {}
     return true;
   } catch (e) {
     // PERMISSION_DENIED from rules = wrong password
     return false;
   }
+}
+
+// Drop the admin capability (logout / leaving the admin panel).
+function clearAdminSession() {
+  const fb = window.firebase;
+  if (!fb || !fb.authUid) return;
+  try { fb.remove(fb.ref(fb.db, `adminSessions/${fb.authUid}`)).catch(() => {}); } catch (e) {}
 }
 
 function authSetError(msg) {
@@ -7193,9 +7246,9 @@ function showAuthView() {
 }
 
 function showAdminView() {
-  // Admin shortcut login tidak lewat finishLogin — set identity manual supaya
-  // fitur seperti spectator/chat punya nickname yang valid.
-  if (!myUid) myUid = '__admin__';
+  // Admin shortcut login tidak lewat finishLogin — set nickname manual supaya
+  // fitur seperti spectator/chat punya nama yang valid. Identity (myUid) tetap
+  // auth uid dari init(); jangan ditimpa, rules memakainya untuk cek capability.
   if (!myNickname) myNickname = '👑 Admin';
   if (!myUsername) myUsername = '__admin__';
   document.getElementById('authView').classList.add('hidden');
@@ -7299,16 +7352,19 @@ async function doLogin() {
 }
 
 function finishLogin({ name, username, uid }) {
-  // Persist session
+  // NOTE: identity (myUid) is the Firebase auth uid set in init() — NOT the
+  // `uid` field stored on the account. That field is world-readable, so
+  // trusting it let anyone impersonate a player by writing their seat.
+  // It is kept in the session blob only for backwards compatibility.
   try {
     localStorage.setItem('mk_session', JSON.stringify({ name, username, uid }));
-    sessionStorage.setItem('truf_uid', uid);
   } catch (e) {}
-  myUid = uid;
   myNickname = username;   // display name in-game = login USERNAME
   myUsername = username;
-  // Auto-cleanup room tidak aktif (jalan tiap 1 menit, threshold 5 menit no-human)
-  startAutoCleanup();
+  // Auto-cleanup room tidak aktif TIDAK dijalankan pemain biasa lagi: rules
+  // sekarang hanya mengizinkan host (atau admin) menghapus room, jadi panggilan
+  // ini hanya akan menghasilkan PERMISSION_DENIED berulang. Pembersihan
+  // dilakukan lewat tombol "Bersihkan" di panel admin.
   // Lock the nickname field to the logged-in USERNAME (read-only).
   const ni = document.getElementById('nicknameInput');
   if (ni) {
@@ -7334,8 +7390,11 @@ function finishLogin({ name, username, uid }) {
 }
 
 function doLogout() {
-  try { localStorage.removeItem('mk_session'); sessionStorage.removeItem('truf_uid'); } catch (e) {}
-  myUid = null; myNickname = '';
+  clearAdminSession();
+  try { localStorage.removeItem('mk_session'); } catch (e) {}
+  // Keep myUid: it is the anonymous auth identity, not the game account.
+  // Clearing it would leave the client unable to write anything at all.
+  myNickname = '';
   showAuthView();
   // Reset to login tab
   document.getElementById('loginForm').style.display = '';
@@ -7930,15 +7989,28 @@ function initAuth() {
 }
 
 function init() {
-  // Per-tab UID, persisted in sessionStorage so a refresh / network blip keeps
-  // the same identity (enables reconnect). A brand-new tab gets a fresh UID.
-  try {
-    myUid = sessionStorage.getItem('truf_uid');
-  } catch (e) {}
-  if (!myUid) {
-    myUid = 'u_' + Math.random().toString(36).slice(2, 10) + '_' + Date.now().toString(36);
-    try { sessionStorage.setItem('truf_uid', myUid); } catch (e) {}
+  // Identity = the Firebase anonymous auth uid. It is issued by the server and
+  // cannot be forged, which is what lets the database rules enforce ownership
+  // (see the security note in the Firebase bootstrap module above).
+  //
+  // Previously this was a random client-generated id kept in sessionStorage.
+  // That id was also stored in /accounts and world-readable, so anyone could
+  // read another player's uid and overwrite their seat to kick them out.
+  if (window.__mkAuthError) {
+    setConnectionStatus(window.__mkAuthError, 'error');
+    const cfgErr = document.getElementById('configError');
+    if (cfgErr) {
+      cfgErr.textContent = window.__mkAuthError;
+      cfgErr.classList.remove('hidden');
+    }
+    return;
   }
+  myUid = (window.firebase && window.firebase.authUid) || null;
+  if (!myUid) {
+    setConnectionStatus('Gagal mendapatkan identitas dari server', 'error');
+    return;
+  }
+  try { sessionStorage.setItem('truf_uid', myUid); } catch (e) {}
 
   // Restore nickname from sessionStorage (only this tab)
   try {
