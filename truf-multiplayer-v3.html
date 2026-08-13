@@ -7898,6 +7898,10 @@ async function maybeRecordLeaderboard(room) {
         name: r.name,
         matches: newMatches,
         points: newPoints,
+        // srcRoom dipakai rules untuk memastikan penulisnya memang host dari
+        // room yang ada — leaderboard memang ditulis host untuk semua pemain,
+        // jadi tidak bisa dibatasi "hanya baris sendiri".
+        srcRoom: room.code || null,
       });
     } catch (e) { console.error('[leaderboard] record failed for', r.username, e); }
   }

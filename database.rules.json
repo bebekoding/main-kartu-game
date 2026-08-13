@@ -56,8 +56,10 @@
     "leaderboards": {
       ".read": true,
       "$game": {
+        ".validate": "$game.matches(/^(truf|cangkul|remi|tebak)$/)",
         "$username": {
-          ".write": "auth != null"
+          ".write": "auth != null && ( root.child('adminSessions').child(auth.uid).exists() || root.child('rooms').child(newData.child('srcRoom').val()).child('host').val() === auth.uid )",
+          ".validate": "!newData.exists() || ( newData.child('matches').val() === (data.exists() ? data.child('matches').val() : 0) + 1 && (newData.child('points').val() - (data.exists() ? data.child('points').val() : 0)) <= 11 && (newData.child('points').val() - (data.exists() ? data.child('points').val() : 0)) >= 0 )"
         }
       }
     },
