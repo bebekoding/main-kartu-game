@@ -10,27 +10,186 @@
       ".firebaserc",
       "**/.*",
       "**/node_modules/**",
-      "*.md"
+      "*.md",
+      "docs/**",
+      "tests/**",
+      "scripts/**",
+      "database.rules.json",
+      "truf-game.html",
+      "artifacts/**"
     ],
     "rewrites": [
-      { "source": "/truf/**", "destination": "/truf-multiplayer-v3.html" },
-      { "source": "/cangkul/**", "destination": "/truf-multiplayer-v3.html" },
-      { "source": "/remi/**", "destination": "/truf-multiplayer-v3.html" },
-      { "source": "/tebak/**", "destination": "/truf-multiplayer-v3.html" },
-      { "source": "/truf", "destination": "/truf-multiplayer-v3.html" },
-      { "source": "/cangkul", "destination": "/truf-multiplayer-v3.html" },
-      { "source": "/remi", "destination": "/truf-multiplayer-v3.html" },
-      { "source": "/tebak", "destination": "/truf-multiplayer-v3.html" },
-      { "source": "/", "destination": "/truf-multiplayer-v3.html" }
+      {
+        "source": "/truf/**",
+        "destination": "/truf-multiplayer-v3.html"
+      },
+      {
+        "source": "/cangkul/**",
+        "destination": "/truf-multiplayer-v3.html"
+      },
+      {
+        "source": "/remi/**",
+        "destination": "/truf-multiplayer-v3.html"
+      },
+      {
+        "source": "/tebak/**",
+        "destination": "/truf-multiplayer-v3.html"
+      },
+      {
+        "source": "/truf",
+        "destination": "/truf-multiplayer-v3.html"
+      },
+      {
+        "source": "/cangkul",
+        "destination": "/truf-multiplayer-v3.html"
+      },
+      {
+        "source": "/remi",
+        "destination": "/truf-multiplayer-v3.html"
+      },
+      {
+        "source": "/tebak",
+        "destination": "/truf-multiplayer-v3.html"
+      },
+      {
+        "source": "/",
+        "destination": "/truf-multiplayer-v3.html"
+      }
     ],
     "redirects": [
-      { "source": "/truf-multiplayer-v2.html", "destination": "/", "type": 302 }
+      {
+        "source": "/truf-multiplayer-v2.html",
+        "destination": "/",
+        "type": 302
+      }
     ],
     "headers": [
-      { "source": "**/*.html", "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }] },
-      { "source": "cards/**", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
-      { "source": "**/*.@(png|jpg|jpeg|webp|gif|svg)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
-      { "source": "**/*.mp3", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] }
+      {
+        "source": "**/*.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "cards/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      },
+      {
+        "source": "**/*.@(png|jpg|jpeg|webp|gif|svg)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      },
+      {
+        "source": "**/*.mp3",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      },
+      {
+        "source": "/",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/room-membership.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/truf",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/truf/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/cangkul",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/cangkul/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/remi",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/remi/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/tebak",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/tebak/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      }
     ]
   }
 }

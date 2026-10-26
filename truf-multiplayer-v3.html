@@ -22,6 +22,7 @@
 </script>
 
 <!-- Firebase SDK (modular v10) -->
+<script src="/room-membership.js?v=2"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import {
@@ -47,6 +48,7 @@
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   const auth = getAuth(app);
+  const membershipDb = window.RoomMembership.databaseBridge({ db, ref, set, get, update, remove });
 
   // SECURITY: identity comes from Firebase Authentication, so the database
   // rules get a server-issued, unforgeable auth.uid. Rules use it to enforce
@@ -69,6 +71,7 @@
     reauthenticate: (email, password) =>
       reauthenticateWithCredential(auth.currentUser,
         EmailAuthProvider.credential(email, password)),
+    ...membershipDb,
   };
 
   // Firebase persists the session itself, so a refresh keeps the same identity
@@ -3211,6 +3214,12 @@
   /* Positions (right-to-left): mute → audio → rank → logout */
   .mute-btn          { right: 12px;  width: 46px; }
   .audio-settings-btn { right: 66px; width: 46px; }
+  .host-control-btn { right: 120px; width: auto; min-width: 76px; padding: 0 12px; font-family: var(--font-sans); font-size: 12px; }
+  .host-request-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid rgba(212,168,75,.25); }
+  .host-request-row span { min-width: 0; overflow-wrap: anywhere; }
+  #hostControlModal .host-request-row .btn { width: auto; min-width: 0; margin: 0; padding: 8px 12px; font-size: 11px; }
+  #hostControlModal { z-index: 10020; }
+  #hostControlModal[hidden] { display: none; }
   .rank-fixed-btn     { right: 120px; padding: 0 18px; letter-spacing: 0.1em; }
   .logout-btn         { right: 120px; padding: 0 18px; letter-spacing: 0.08em; color: rgba(244,234,213,0.8); }
   /* When RANK is visible, push logout further right */
@@ -3221,6 +3230,7 @@
   body.mobile-layout .top-ctrl-btn { top: 8px; height: 38px; font-size: 13px; border-radius: 19px; }
   body.mobile-layout .mute-btn { right: 8px; width: 38px; }
   body.mobile-layout .audio-settings-btn { right: 52px; width: 38px; }
+  body.mobile-layout .host-control-btn { right: 96px; min-width: 66px; padding: 0 8px; font-size: 11px; }
   body.mobile-layout .rank-fixed-btn { right: 96px; padding: 0 12px; }
   body.mobile-layout .logout-btn { right: 96px; padding: 0 12px; }
   body.mobile-layout .logout-btn.with-rank { right: 180px; }
@@ -5632,6 +5642,16 @@
 <button id="lobbyRankBtn" class="top-ctrl-btn rank-fixed-btn" title="Peringkat" style="display:none;">🏆 RANK</button>
 <button id="muteBtn" class="top-ctrl-btn mute-btn" title="Suara on/off">&#128266;</button>
 <button id="audioSettingsBtn" class="top-ctrl-btn audio-settings-btn" title="Atur volume">&#127911;</button>
+<button id="hostControlBtn" class="top-ctrl-btn host-control-btn hidden" type="button">Host</button>
+<div class="modal-overlay" id="hostControlModal" role="dialog" aria-modal="true" aria-labelledby="hostControlTitle" aria-hidden="true" hidden>
+  <div class="modal-card" style="max-width:440px;">
+    <h2 class="modal-title" id="hostControlTitle">Pengelolaan Host</h2>
+    <p class="modal-subtitle" id="hostControlStatus"></p>
+    <div id="hostRequestList" aria-live="polite"></div>
+    <button class="btn primary" type="button" id="requestHostBtn">Ajukan Host</button>
+    <button class="btn" type="button" id="closeHostControlBtn">Tutup</button>
+  </div>
+</div>
 <div id="audioPanel" class="audio-panel" role="dialog" aria-label="Pengaturan suara">
   <h4>Pengaturan Suara</h4>
   <div class="audio-row">
@@ -8442,7 +8462,7 @@ function clearSavedRoom() {
 }
 
 // Register the onDisconnect action for my player node.
-// mode 'remove' (lobby): free the seat on disconnect.
+// mode 'presence' (lobby): mark disconnected without orphaning the seat index.
 // mode 'keep'   (in-game): cancel any onDisconnect — the seat is kept intact so
 //   the host's 30s heartbeat check decides when to hand it to a bot (grace period).
 let onDisconnectMode = null;
@@ -8451,8 +8471,8 @@ async function setupOnDisconnect(roomCode, mode) {
   onDisconnectMode = mode;
   const pref = fb.ref(fb.db, `rooms/${roomCode}/players/${myUid}`);
   try { await fb.onDisconnect(pref).cancel(); } catch (e) {}
-  if (mode === 'remove') {
-    fb.onDisconnect(pref).remove();
+  if (mode === 'presence') {
+    await fb.onDisconnect(pref).update({ lastSeen: 0, disconnected: true, disconnectedAt: fb.serverTimestamp() });
   }
   // mode 'keep': nothing registered — disconnect leaves the entry untouched.
 }
@@ -8465,7 +8485,7 @@ async function attemptAutoRejoin() {
     const snap = await fb.get(fb.ref(fb.db, 'rooms/' + savedRoom));
     if (!snap.exists()) { clearSavedRoom(); return; }
     const room = snap.val();
-    if (!room.players || !room.players[myUid]) { clearSavedRoom(); return; }
+    if (!room.players || !room.players[myUid] || room.players[myUid].leftHuman) { clearSavedRoom(); return; }
     // I'm still a player here — resume. Clear disconnect flag + fresh heartbeat.
     myNickname = room.players[myUid].nickname || myNickname;
     // Align the selected game with the room being restored so branding/logic
@@ -8501,7 +8521,7 @@ function graceSecondsLeft(player) {
 // Build the role-tag HTML for a seat, including disconnect status / countdown.
 function buildRoleHtml(player, absSeat) {
   const tags = [`KURSI ${absSeat + 1}`];
-  if (player.isHost) tags.push('HOST');
+  if (_lastRoom && player.uid === _lastRoom.host) tags.push('HOST');
   if (player.isBot) tags.push('BOT');
   if (absSeat === mySeat) tags.push('ANDA');
   let html = tags.join(' · ');
@@ -8519,6 +8539,7 @@ let countdownTicker = null;
 function startCountdownTicker() {
   if (countdownTicker) clearInterval(countdownTicker);
   countdownTicker = setInterval(() => {
+    if (_lastRoom && !isSpectator) { maybeMigrateHost(_lastRoom); maybePruneLobbyPlayers(_lastRoom); renderHostControls(_lastRoom); }
     if (!_lastRoom || !_lastRoom.players || _lastRoom.phase === 'lobby') return;
     const playersBySeat = {};
     for (const p of Object.values(_lastRoom.players)) playersBySeat[p.seat] = p;
@@ -9012,14 +9033,14 @@ function maybeDetectDisconnects(room) {
 function maybeRecoverEmptySeats(room) {
   if (!room || room.host !== myUid) return;
   if (room.phase === 'lobby') return;
-  const roster = (room.gameState && room.gameState.roster) || {};
+  const roster = RoomMembership.roster(room);
   const playersBySeat = {};
   for (const p of Object.values(room.players || {})) playersBySeat[p.seat] = p;
   const updates = {};
   const now = serverNow();
-  for (let seat = 0; seat < MAX_PLAYERS; seat++) {
+  for (const [seatKey, r] of Object.entries(roster)) {
+    const seat = Number(seatKey);
     if (playersBySeat[seat]) continue; // seat occupied — fine
-    const r = roster[seat] || roster[String(seat)];
     if (r && !r.isBot) {
       // Recreate the human as disconnected — 30s grace clock starts now
       updates[`players/${r.uid}`] = {
@@ -9051,26 +9072,139 @@ function maybeRecoverEmptySeats(room) {
   }
 }
 
-// If the host itself is disconnected, the lowest-seat connected human promotes
-// itself to host so bots keep running.
+// Host changes are enforced again by database rules. Local election only
+// chooses the first already-seated, online human after the old host is gone.
+let _hostMigrationInFlight = false;
+let _membershipBootstrapInFlight = false;
 function maybeMigrateHost(room) {
-  if (!room || room.phase === 'lobby') return;
-  const players = Object.values(room.players || {});
-  const host = players.find(p => p.uid === room.host);
-  const now = serverNow();
-  const hostStale = host && ((now - (host.lastSeen || 0)) > DISCONNECT_THRESHOLD_MS);
-  const hostGone = !host || host.disconnected || hostStale;
-  if (!hostGone) return; // host is fine
-  // Pick lowest-seat connected human (fresh heartbeat)
-  const candidates = players
-    .filter(p => !p.isBot && !p.disconnected && ((now - (p.lastSeen || 0)) <= DISCONNECT_THRESHOLD_MS))
-    .sort((a, b) => a.seat - b.seat);
-  if (candidates.length === 0) return; // nobody to take over
-  const newHost = candidates[0];
-  if (newHost.uid === room.host) return;
-  if (newHost.uid !== myUid) return; // only the prospective host writes
-  fb.update(fb.ref(fb.db, 'rooms/' + currentRoom), { host: myUid })
-    .catch(e => console.error('host migration failed:', e));
+  if (!room || isSpectator || _hostMigrationInFlight || !RoomMembership.hostUnavailable(room, serverNow())) return;
+  const successor = RoomMembership.onlineHumans(room, serverNow())[0];
+  if (!successor || successor.uid !== myUid || successor.uid === room.host) return;
+  const code = currentRoom;
+  _hostMigrationInFlight = true;
+  fb.update(fb.ref(fb.db, 'rooms/' + code), { host: myUid, hostRequests: null })
+    .catch(e => console.warn('host migration rejected:', e.code || e.message))
+    .finally(() => { _hostMigrationInFlight = false; });
+}
+
+function ensureRoomMembershipIndex(room) {
+  if (room.membershipVersion === 2 || room.host !== myUid || _membershipBootstrapInFlight) return;
+  _membershipBootstrapInFlight = true;
+  let seats;
+  try { seats = RoomMembership.indexPlayers(room.players, RoomMembership.capacity(room)); }
+  catch (e) { _membershipBootstrapInFlight = false; showGameToast(escapeHtml(e.message), 'warn', 7000); return; }
+  fb.update(fb.ref(fb.db, 'rooms/' + currentRoom), { membershipVersion: 2, seats })
+    .catch(e => console.error('membership bootstrap failed', e))
+    .finally(() => { _membershipBootstrapInFlight = false; });
+}
+
+let _lobbyCleanupInFlight = false;
+async function maybePruneLobbyPlayers(room) {
+  if (!room || room.phase !== 'lobby' || room.host !== myUid || _lobbyCleanupInFlight) return;
+  if (!Object.values(room.players || {}).some(p => p.uid !== myUid && !p.isBot &&
+      (p.disconnected || (p.lastSeen || 0) < serverNow() - RoomMembership.HOST_GRACE_MS))) return;
+  _lobbyCleanupInFlight = true;
+  const code = currentRoom;
+  try {
+    const snap = await fb.get(fb.ref(fb.db, 'rooms/' + code));
+    if (!snap.exists() || currentRoom !== code) return;
+    const fresh = snap.val();
+    if (fresh.phase !== 'lobby' || fresh.host !== myUid) return;
+    const changes = {};
+    for (const p of Object.values(fresh.players || {})) {
+      if (p.uid !== myUid && !p.isBot && (p.disconnected || (p.lastSeen || 0) < serverNow() - RoomMembership.HOST_GRACE_MS)) {
+        changes['players/' + p.uid] = null;
+        changes['hostRequests/' + p.uid] = null;
+      }
+    }
+    if (Object.keys(changes).length) await fb.update(fb.ref(fb.db, 'rooms/' + code), changes);
+  } catch (e) { console.warn('lobby cleanup skipped:', e.code || e.message); }
+  finally { _lobbyCleanupInFlight = false; }
+}
+
+function renderHostControls(room) {
+  const btn = document.getElementById('hostControlBtn');
+  if (!btn) return;
+  const me = room && room.players && room.players[myUid];
+  const visible = !!(currentRoom && me && !me.isBot && !isSpectator);
+  btn.classList.toggle('hidden', !visible);
+  if (!visible) { closeHostControl(); return; }
+  const owner = room.players && room.players[room.host];
+  const amHost = room.host === myUid;
+  const requests = Object.values(room.hostRequests || {}).filter(q => q.hostUid === room.host && room.players[q.uid] && !room.players[q.uid].isBot);
+  btn.textContent = amHost && requests.length ? 'Host · ' + requests.length : 'Host';
+  const status = document.getElementById('hostControlStatus');
+  status.textContent = owner && !owner.isBot ? 'Host saat ini: ' + owner.nickname : 'Menunggu pemain online untuk menjadi host.';
+  const list = document.getElementById('hostRequestList');
+  list.replaceChildren();
+  if (amHost) {
+    if (!requests.length) list.textContent = 'Belum ada pengajuan host.';
+    for (const q of requests.sort((a,b) => a.requestedAt - b.requestedAt)) {
+      const row = document.createElement('div'); row.className = 'host-request-row';
+      const name = document.createElement('span'); name.textContent = room.players[q.uid].nickname;
+      row.appendChild(name);
+      for (const [label, approved] of [['Setujui', true], ['Tolak', false]]) {
+        const action = document.createElement('button'); action.type = 'button';
+        action.className = approved ? 'btn primary' : 'btn'; action.textContent = label;
+        action.disabled = approved && !RoomMembership.online(room.players[q.uid], serverNow());
+        action.onclick = () => decideHostRequest(q.uid, approved);
+        row.appendChild(action);
+      }
+      list.appendChild(row);
+    }
+  } else {
+    list.textContent = 'Pengalihan perlu disetujui host sebelumnya. Klaim bebas hanya tersedia jika semua pemain di match adalah bot.';
+  }
+  const request = document.getElementById('requestHostBtn');
+  const pending = requests.some(q => q.uid === myUid);
+  request.style.display = amHost ? 'none' : '';
+  request.disabled = pending || !owner || owner.isBot;
+  request.textContent = pending ? 'Menunggu persetujuan host' : 'Ajukan Host';
+}
+
+function closeHostControl() {
+  const modal = document.getElementById('hostControlModal');
+  modal.classList.remove('show');
+  modal.hidden = true;
+  modal.setAttribute('aria-hidden', 'true');
+}
+
+let _hostRequestBusy = false;
+async function requestHostControl() {
+  if (!currentRoom || isSpectator || _hostRequestBusy) return;
+  _hostRequestBusy = true;
+  try {
+    const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
+    if (!snap.exists()) return;
+    const room = snap.val();
+    if (room.host === myUid || !RoomMembership.online((room.players || {})[myUid], serverNow())) return;
+    await fb.set(fb.ref(fb.db, `rooms/${currentRoom}/hostRequests/${myUid}`), {
+      uid: myUid, hostUid: room.host, requestedAt: fb.serverTimestamp(),
+    });
+    showGameToast('Pengajuan terkirim. Tunggu persetujuan host.', 'good');
+  } catch (e) { showGameToast('Pengajuan gagal: ' + escapeHtml(e.message), 'warn'); }
+  finally { _hostRequestBusy = false; }
+}
+
+async function decideHostRequest(uid, approved) {
+  if (!currentRoom || isSpectator || _hostRequestBusy) return;
+  if (approved && !confirm('Setujui pengalihan host ke pemain ini?')) return;
+  _hostRequestBusy = true;
+  try {
+    const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
+    if (!snap.exists()) return;
+    const room = snap.val();
+    const request = room.hostRequests && room.hostRequests[uid];
+    if (room.host !== myUid || !request || request.hostUid !== myUid) return;
+    if (approved) {
+      if (!RoomMembership.online((room.players || {})[uid], serverNow())) throw new Error('Pemain tersebut sedang tidak online.');
+      await fb.update(fb.ref(fb.db, 'rooms/' + currentRoom), { host: uid, hostRequests: null });
+      showGameToast('Host berhasil dialihkan.', 'good');
+    } else {
+      await fb.remove(fb.ref(fb.db, `rooms/${currentRoom}/hostRequests/${uid}`));
+    }
+  } catch (e) { showGameToast('Pengalihan gagal: ' + escapeHtml(e.message), 'warn'); }
+  finally { _hostRequestBusy = false; }
 }
 
 function validateFirebaseConfig() {
@@ -9182,6 +9316,19 @@ function showLobbyForGame(g, opts) {
 }
 
 function attachListeners() {
+  document.getElementById('hostControlBtn').onclick = () => {
+    if (_lastRoom && !isSpectator) {
+      renderHostControls(_lastRoom);
+      const modal = document.getElementById('hostControlModal');
+      modal.hidden = false;
+      modal.setAttribute('aria-hidden', 'false');
+      modal.classList.add('show');
+      document.getElementById('closeHostControlBtn').focus();
+    }
+  };
+  document.getElementById('closeHostControlBtn').onclick = closeHostControl;
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHostControl(); });
+  document.getElementById('requestHostBtn').onclick = requestHostControl;
   // Game selection
   document.querySelectorAll('.game-option').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -9191,16 +9338,11 @@ function attachListeners() {
   });
   const backBtn = document.getElementById('backToGameSelectBtn');
   if (backBtn) backBtn.onclick = showGameSelect;
-  // Room-view back: confirm + leave room first, then return to game selection.
+  // Leave first; cancelling must keep both the room and visible screen.
   const roomBack = document.getElementById('roomBackToGameSelectBtn');
-  if (roomBack) {
-    roomBack.onclick = async () => {
-      const ok = confirm('Keluar room dan kembali ke pilihan game?');
-      if (!ok) return;
-      try { await handleLeaveRoom(); } catch (e) {}
-      showGameSelect();
-    };
-  }
+  if (roomBack) roomBack.onclick = async () => {
+    if (await handleLeaveRoom()) showGameSelect();
+  };
 
   // Cangkul-only handlers
   const maxSel = document.getElementById('cangkulMaxPlayers');
@@ -9429,9 +9571,9 @@ async function handleCreateRoom() {
     
     await fb.set(roomRef, initialState);
 
-    // Lobby: onDisconnect frees the seat
+    // Lobby: onDisconnect marks presence; indexed seats stay consistent
     onDisconnectMode = null;
-    await setupOnDisconnect(roomCode, 'remove');
+    await setupOnDisconnect(roomCode, 'presence');
 
     currentRoom = roomCode;
     saveRoom(roomCode);
@@ -9509,106 +9651,22 @@ async function handleJoinRoom() {
       return;
     }
 
-    // RECONNECT (path 1): my uid is already a player here → just resume.
-    const existingPlayer = room.players && room.players[myUid];
-    if (existingPlayer) {
-      await fb.update(fb.ref(fb.db, `rooms/${code}/players/${myUid}`), {
-        disconnected: null,
-        disconnectedAt: null,
-        lastSeen: fb.serverTimestamp(),
-        nickname: nickname,
-        username: myUsername || null,
-      });
-      onDisconnectMode = null;
-      currentRoom = code;
-      saveRoom(code);
-      enterRoomView(code);
-      return;
-    }
-
-    if (room.phase !== 'lobby') {
-      // Game in progress — RECONNECT (path 2): only a player whose NICKNAME
-      // matches a human seat in the roster may rejoin, and only into THAT seat.
-      const roster = (room.gameState && room.gameState.roster) || {};
-      const playersBySeat2 = {};
-      for (const p of Object.values(room.players || {})) playersBySeat2[p.seat] = p;
-
-      let targetSeat = -1;
-      const wantName = nickname.toLowerCase();
-      for (let seat = 0; seat < MAX_PLAYERS; seat++) {
-        const r = roster[seat] || roster[String(seat)];
-        if (r && !r.isBot && (r.nickname || '').toLowerCase() === wantName) {
-          const occ = playersBySeat2[seat];
-          // Reclaimable if the seat is empty, run by a bot, OR the human there is
-          // disconnected — including DURING the 30s grace (disconnectedAt set but
-          // not yet flagged 'disconnected').
-          const reclaimable = !occ || occ.isBot || occ.disconnected || occ.disconnectedAt;
-          if (reclaimable) {
-            targetSeat = seat;
-          } else {
-            showLobbyStatus('Pemain dengan nama itu sedang aktif di room', 'error');
-            setBtnLoading('joinRoomBtn', false);
-            return;
-          }
-          break;
-        }
-      }
-
-      if (targetSeat < 0) {
-        showLobbyStatus('Game sudah dimulai — hanya pemain yang terputus (nama sama) bisa gabung', 'error');
-        setBtnLoading('joinRoomBtn', false);
-        return;
-      }
-
-      // Reclaim the seat: remove the current (disconnected/bot) occupant, add myself
-      const occ = playersBySeat2[targetSeat];
-      const takeoverUpdates = {};
-      if (occ) takeoverUpdates[`players/${occ.uid}`] = null;
-      takeoverUpdates[`players/${myUid}`] = {
-        uid: myUid,
-        nickname: nickname,
-        username: myUsername || null,
-        seat: targetSeat,
-        isBot: false,
-        isHost: false,
-        lastSeen: fb.serverTimestamp(),
-      };
-      await fb.update(fb.ref(fb.db, 'rooms/' + code), takeoverUpdates);
-      onDisconnectMode = null;
-      currentRoom = code;
-      saveRoom(code);
-      enterRoomView(code);
-      return;
-    }
-
-    // --- Lobby join (game not started) ---
-    const humanPlayers = Object.values(room.players || {}).filter(p => !p.isBot);
-    if (humanPlayers.length >= MAX_PLAYERS) {
-      showLobbyStatus('Room penuh', 'error');
+    const joining = RoomMembership.joinPatch(room, myUid, nickname, myUsername, fb.serverTimestamp());
+    if (joining.claiming && !confirm('Room ini hanya berisi bot. Ambil alih sebagai host dan lanjutkan match?')) {
       setBtnLoading('joinRoomBtn', false);
       return;
     }
+    // The bridge commits player + seat + optional host claim atomically.
+    // Rules reject an occupied seat if another client reserved it first.
+    await fb.update(roomRef, joining.changes);
+    if (joining.claiming) {
+      const claimedSeat = joining.changes['players/' + myUid].seat;
+      await fb.update(roomRef, { ['gameState/roster/' + claimedSeat]: { uid: myUid, nickname, isBot: false } });
+    }
 
-    // Find first available seat (0-3, excluding occupied)
-    const takenSeats = new Set(Object.values(room.players || {}).map(p => p.seat));
-    let seat = 0;
-    while (takenSeats.has(seat) && seat < MAX_PLAYERS) seat++;
-
-    // Add myself
-    const myPlayerRef = fb.ref(fb.db, `rooms/${code}/players/${myUid}`);
-    await fb.set(myPlayerRef, {
-      uid: myUid,
-      nickname: nickname,
-      username: myUsername || null,
-      seat: seat,
-      isBot: false,
-      isHost: false,
-      lastSeen: fb.serverTimestamp(),
-    });
-
-    // Lobby: onDisconnect frees the seat
+    // Lobby: onDisconnect marks presence; indexed seats stay consistent
     onDisconnectMode = null;
-    await setupOnDisconnect(code, 'remove');
+    await setupOnDisconnect(code, 'presence');
 
     currentRoom = code;
     saveRoom(code);
@@ -9659,12 +9717,15 @@ function enterRoomView(code) {
     }
 
     // Keep my onDisconnect behavior in sync with the phase:
-    // lobby → remove seat; in-game → keep seat (host's 30s check handles it).
+    // lobby → mark presence; in-game → keep seat (host's 30s check handles it).
     const phaseNow = room.phase || 'lobby';
-    setupOnDisconnect(code, phaseNow === 'lobby' ? 'remove' : 'keep');
+    setupOnDisconnect(code, phaseNow === 'lobby' ? 'presence' : 'keep');
 
-    // Cache the latest room snapshot for the 1s countdown ticker
+    // Ownership changes invalidate the old host's scheduled bot work.
+    if (_lastRoom && _lastRoom.host !== room.host) resetHostTrackers();
     _lastRoom = room;
+    ensureRoomMembershipIndex(room);
+    renderHostControls(room);
 
     // Render chat + leaderboard (work in both lobby and game)
     renderChat(room);
@@ -9684,6 +9745,7 @@ function enterRoomView(code) {
     maybeDetectDisconnects(room);
     maybeRecoverEmptySeats(room);
     maybeMigrateHost(room);
+    maybePruneLobbyPlayers(room);
 
     // Leaderboard: host records per-game ranking points at match end
     try { maybeRecordLeaderboard(room); } catch (e) { console.error('leaderboard record fail', e); }
@@ -9826,7 +9888,7 @@ function renderRoom(room) {
     if (p) {
       seatEl.classList.add('filled');
       if (p.uid === myUid) seatEl.classList.add('you');
-      if (p.isHost) seatEl.classList.add('host');
+      if (p.uid === room.host) seatEl.classList.add('host');
       if (p.isBot) seatEl.classList.add('bot');
     } else {
       seatEl.classList.add('empty');
@@ -9845,7 +9907,7 @@ function renderRoom(room) {
       <div class="seat-status"></div>
       <div class="seat-info">
         <div class="seat-name">${seatPickable ? 'Pilih kursi ini' : seatName}</div>
-        <div class="seat-label">Kursi ${i + 1}${p && p.uid === myUid ? ' · ANDA' : ''}${p && p.isBot ? ' · BOT' : ''}${p && p.isHost ? ' · HOST' : ''}</div>
+        <div class="seat-label">Kursi ${i + 1}${p && p.uid === myUid ? ' · ANDA' : ''}${p && p.isBot ? ' · BOT' : ''}${p && p.uid === room.host ? ' · HOST' : ''}</div>
       </div>
     `;
     // Cangkul: host can remove bots
@@ -10173,6 +10235,8 @@ function onSpectatorRoomUpdate(room) {
 }
 
 function handleExitSpectator() {
+  document.getElementById('hostControlBtn').classList.add('hidden');
+  closeHostControl();
   isSpectator = false;
   try { TurnReminder.reset(); } catch (e) {}
   try { RemiTurnTimer.reset(); } catch (e) {}
@@ -10219,32 +10283,51 @@ function handleExitSpectator() {
 // ============================================================
 // LEAVE ROOM
 // ============================================================
-async function handleLeaveRoom() {
-  if (!currentRoom) return;
-  if (!confirm('Yakin keluar dari room?')) return;
-  
-  try {
-    const roomSnap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
-    if (roomSnap.exists()) {
-      const room = roomSnap.val();
-      const isHost = room.host === myUid;
-      
-      if (isHost) {
-        // Host leaves: delete entire room (other players will see "room closed")
-        await fb.remove(fb.ref(fb.db, 'rooms/' + currentRoom));
-      } else {
-        // Regular player: just remove self
-        await fb.remove(fb.ref(fb.db, `rooms/${currentRoom}/players/${myUid}`));
-      }
+// Every game uses the same ownership handoff. During a match the leaving
+// human becomes a bot in the same seat, preserving dealt hands and turn order.
+async function leaveRoomMembership() {
+  if (!currentRoom || !myUid) return;
+  const code = currentRoom;
+  const snap = await fb.get(fb.ref(fb.db, 'rooms/' + code));
+  if (!snap.exists()) return;
+  const room = snap.val();
+  const me = (room.players || {})[myUid];
+  if (!me) return;
+  const changes = {};
+  if (room.phase === 'lobby') {
+    changes['players/' + myUid] = null;
+  } else {
+    const takenNames = new Set(Object.values(room.players || {}).filter(p => p.uid !== myUid).map(p => p.nickname));
+    for (const [key, value] of Object.entries({isBot:true,isHost:false,leftHuman:true,
+      nickname:pickRandomBotName(takenNames),username:null,lastSeen:0,disconnected:null,disconnectedAt:null})) {
+      changes['players/' + myUid + '/' + key] = value;
     }
-  } catch (e) {
-    console.error('Leave room error:', e);
   }
-  
-  handleForceLeaveRoom();
+  if (room.host === myUid) {
+    const successor = RoomMembership.onlineHumans(room, serverNow(), myUid)[0];
+    changes.host = successor ? successor.uid : null;
+    changes.hostRequests = null;
+  } else {
+    changes['hostRequests/' + myUid] = null;
+  }
+  await fb.update(fb.ref(fb.db, 'rooms/' + code), changes);
+}
+
+async function handleLeaveRoom() {
+  if (!currentRoom || !confirm('Yakin keluar dari room?')) return false;
+  try {
+    await leaveRoomMembership();
+    handleForceLeaveRoom();
+    return true;
+  } catch (e) {
+    showGameToast('Belum bisa keluar: ' + escapeHtml(e.message) + '. Coba lagi.', 'warn', 5000);
+    return false;
+  }
 }
 
 function handleForceLeaveRoom() {
+  document.getElementById('hostControlBtn').classList.add('hidden');
+  closeHostControl();
   // Drop the room code from the URL — back to /<game> lobby (or / if unknown).
   if (typeof routerClearRoomUrl === 'function') {
     routerClearRoomUrl(currentGameType || null);
@@ -12668,11 +12751,14 @@ function maybeRunRemiBot(room) {
   if (remiBotScheduled.has(key)) return;
   remiBotScheduled.add(key);
   const delay = 700 + Math.floor(Math.random() * 700);
+  const scheduledRoom = currentRoom;
   setTimeout(async () => {
+    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
       if (!snap.exists()) return;
       const r2 = snap.val();
+      if (r2.host !== myUid) return;
       // Guards against stale setTimeouts from previous rounds/sessions firing
       // into a fresh round (causes phantom draws/discards that look like a reset)
       if (r2.phase !== 'playing') return;
@@ -12975,11 +13061,14 @@ function maybeResolveRemiStuck(room) {
   _remiStuckScheduled = true;
   // Small delay + fresh re-read so a transient mid-turn state (e.g. just after a
   // pickup, before the player lays) isn't mistaken for a permanent stuck.
+  const scheduledRoom = currentRoom;
   setTimeout(async () => {
+    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
       if (!snap.exists()) return;
       const r2 = snap.val();
+      if (r2.host !== myUid) return;
       if (r2.phase !== 'playing' || r2.game !== 'remi') return;
       const c2 = r2.remi; if (!c2 || c2.turnPhase !== 'discard') return;
       if (remiPlayerStuck(c2, c2.currentPlayer)) {
@@ -13024,11 +13113,14 @@ function maybeResolveRemiRound(room) {
   // round straight back into the end modal.
   const intendedRound = (c && c.roundNumber) || 1;
   const intendedSession = (c && c.sessionNumber) || 1;
+  const scheduledRoom = currentRoom;
   setTimeout(async () => {
+    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
       if (!snap.exists()) return;
       const r2 = snap.val();
+      if (r2.host !== myUid) return;
       const c2 = r2.remi; if (!c2) return;
       // Guard: if the round/session changed under us, bail. This protects
       // against stale resolve-setTimeouts from a previous round firing into
@@ -14035,41 +14127,13 @@ async function exitRemiToMain() {
   const _capEl = document.getElementById('matchCapPopup');
   if (_capEl) _capEl.remove();
   try {
-    if (currentRoom && myUid) {
-      try {
-        const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
-        if (snap.exists()) {
-          const r = snap.val();
-          const me = r.players && r.players[myUid];
-          const humansLeft = Object.values(r.players || {})
-            .filter(p => p && p.uid !== myUid && !p.isBot && !p.disconnected);
-          if (r.host === myUid && humansLeft.length === 0) {
-            // Host leaving with no other humans → close the room entirely.
-            await fb.remove(fb.ref(fb.db, 'rooms/' + currentRoom));
-          } else if (me) {
-            // Replace my seat with a bot so the game continues for others.
-            const seat = (me.seat != null) ? me.seat : 0;
-            const updates = {};
-            updates[`players/${myUid}/isBot`] = true;
-            // Nama acak (exclude nama lain yang masih di room).
-            const takenNames = new Set(
-              Object.values(r.players || {})
-                .filter(p => p && p.uid !== myUid)
-                .map(p => p.nickname).filter(Boolean)
-            );
-            updates[`players/${myUid}/nickname`] = pickRandomBotName(takenNames);
-            updates[`players/${myUid}/disconnected`] = null;
-            updates[`players/${myUid}/disconnectedAt`] = null;
-            updates[`players/${myUid}/leftHuman`] = true;
-            if (r.host === myUid && humansLeft.length > 0) {
-              updates['host'] = humansLeft[0].uid; // migrate host to a human
-            }
-            await fb.update(fb.ref(fb.db, 'rooms/' + currentRoom), updates);
-          }
-        }
-      } catch (e) { console.error('remi exit cleanup failed', e); }
-    }
-  } finally {
+    await leaveRoomMembership();
+  } catch (e) {
+    _remiExitInProgress = false;
+    showGameToast('Belum bisa keluar: ' + escapeHtml(e.message), 'warn');
+    return;
+  }
+  {
     try { handleForceLeaveRoom(); } catch (e) {}
     hideRemiOverlay(document.getElementById('remiEndModal'));
     hideRemiOverlay(document.getElementById('remiTournamentEndModal'));
@@ -16306,11 +16370,14 @@ function maybeResolveCangkulRound(room) {
   const trickRaw = c.currentTrick || [];
   const trick = Array.isArray(trickRaw) ? trickRaw : Object.values(trickRaw);
   cangkulResolveScheduled = true;
+  const scheduledRoom = currentRoom;
   setTimeout(async () => {
+    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
       if (!snap.exists()) return;
       const r2 = snap.val();
+      if (r2.host !== myUid) return;
       const c2 = r2.cangkul; if (!c2) return;
       const trick2Raw = c2.currentTrick || [];
       const trick2 = Array.isArray(trick2Raw) ? trick2Raw : Object.values(trick2Raw);
@@ -16453,19 +16520,7 @@ function renderCangkulEndModal(room) {
 // every game view, and resets to game-select.
 async function handleCangkulExitToMain() {
   try {
-    if (currentRoom) {
-      try {
-        const roomSnap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
-        if (roomSnap.exists()) {
-          const room = roomSnap.val();
-          if (room.host === myUid) {
-            await fb.remove(fb.ref(fb.db, 'rooms/' + currentRoom));
-          } else {
-            await fb.remove(fb.ref(fb.db, `rooms/${currentRoom}/players/${myUid}`));
-          }
-        }
-      } catch (e) { console.error('cleanup room failed', e); }
-    }
+    await leaveRoomMembership();
     handleForceLeaveRoom();
     // Hide every game/lobby view; the tournament-end modal also clears
     document.getElementById('cangkulGameView').classList.remove('show');
@@ -16616,11 +16671,14 @@ function maybeRunCangkulBot(room) {
   if (cangkulBotScheduled.has(key)) return;
   cangkulBotScheduled.add(key);
   const delay = 700 + Math.floor(Math.random() * 800);
+  const scheduledRoom = currentRoom;
   setTimeout(async () => {
+    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
       if (!snap.exists()) return;
       const r2 = snap.val();
+      if (r2.host !== myUid) return;
       const c2 = r2.cangkul; if (!c2) return;
       if (c2.currentPlayer !== cp) return;
       // If player reconnected during delay, abort — let human play
@@ -17062,7 +17120,9 @@ function maybeTriggerReveal(room) {
   if (bidCount < 4) return;
   if (revealTriggerScheduled) return;
   revealTriggerScheduled = true;
+  const scheduledRoom = currentRoom;
   setTimeout(async () => {
+    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       await fb.update(
         fb.ref(fb.db, `rooms/${currentRoom}/bidding`),
@@ -17092,11 +17152,14 @@ function maybeRunBotConfirms(room) {
     if (botConfirmScheduledSeats.has(seat)) continue;
     botConfirmScheduledSeats.add(seat);
     const delay = 800 + Math.floor(Math.random() * 1200);
+    const scheduledRoom = currentRoom;
     setTimeout(async () => {
+      if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
       try {
         const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
         if (!snap.exists()) return;
         const r2 = snap.val();
+      if (r2.host !== myUid) return;
         const pbs2 = {};
         for (const p of Object.values(r2.players || {})) pbs2[p.seat] = p;
         if (!isBotControlled(pbs2[seat])) return;
@@ -17140,7 +17203,9 @@ function maybeResolveBids(room) {
   if (countConfirms(bidding.confirmations) < MAX_PLAYERS) return;
   if (bidResolveScheduled) return;
   bidResolveScheduled = true;
+  const scheduledRoom = currentRoom;
   setTimeout(async () => {
+    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const { winner, winnerBid } = determineBidWinner(bidding.bids);
       if (winner < 0 || !winnerBid) {
@@ -17436,7 +17501,9 @@ function maybeStartPlay(room) {
   if (result.mode === 'tie' && !result.tieDecision) return; // wait for tie resolution
   if (playStartScheduled) return;
   playStartScheduled = true;
+  const scheduledRoom = currentRoom;
   setTimeout(async () => {
+    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const bidWinner = result.winner;
       const play = {
@@ -17686,12 +17753,15 @@ function maybeRunBotPlay(room) {
   });
 
   const delay = 700 + Math.floor(Math.random() * 700);
+  const scheduledRoom = currentRoom;
   setTimeout(async () => {
+    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       // Re-fetch latest state for safety
       const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
       if (!snap.exists()) return;
       const room2 = snap.val();
+      if (room2.host !== myUid) return;
       const play2 = getPlayState(room2);
       if (!play2) return;
       if (play2.currentPlayer !== play.currentPlayer) return;
@@ -17735,7 +17805,11 @@ function maybeFinishSession(room) {
   if (sessionEndScheduled) return;
   sessionEndScheduled = true;
 
+  const scheduledRoom = currentRoom;
+
   setTimeout(async () => {
+
+    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const commits = room.bidResult.commitments || {};
       const tricks = room.play.tricksWon || {};
@@ -18109,7 +18183,11 @@ function maybeResolveTrick(room) {
   if (trickResolveScheduled) return;
   trickResolveScheduled = true;
 
+  const scheduledRoom = currentRoom;
+
   setTimeout(async () => {
+
+    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const { trumpSuit, noTrump } = getTrumpFromRoom(room);
       const winnerSeat = determineTrickWinner(currentTrick, play.leadSuit, trumpSuit, noTrump);
@@ -18151,12 +18229,15 @@ function maybeRunBotTieDecision(room) {
   if (!isBotControlled(winner)) return;
   if (botTieDecisionScheduled) return;
   botTieDecisionScheduled = true;
+  const scheduledRoom = currentRoom;
   setTimeout(async () => {
+    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       // Re-check if player reconnected during delay
       const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
       if (!snap.exists()) return;
       const r2 = snap.val();
+      if (r2.host !== myUid) return;
       const pbs2 = {};
       for (const p of Object.values(r2.players || {})) pbs2[p.seat] = p;
       if (!isBotControlled(pbs2[winnerSeat])) return;
@@ -18379,14 +18460,9 @@ window.addEventListener('beforeunload', (e) => {
     e.preventDefault();
     e.returnValue = '';
   }
-  if (currentRoom && fb) {
-    const inLobby = (lastPhase === 'lobby' || lastPhase == null);
-    if (inLobby) {
-      try {
-        fb.remove(fb.ref(fb.db, `rooms/${currentRoom}/players/${myUid}`));
-      } catch (e2) {}
-    }
-  }
+  // onDisconnect marks presence. Peers migrate ownership; the seat index
+  // stays intact for authenticated reconnect. Async unload writes are unreliable.
+
 });
 
 // ============================================================
@@ -18478,7 +18554,7 @@ function pushGameHistoryGuard() {
 function clearGameHistoryGuard() {
   _gameHistoryPushed = false;
 }
-window.addEventListener('popstate', (e) => {
+window.addEventListener('popstate', async (e) => {
   const inActive = isInActiveGame();
   const inRoom = !!currentRoom;
   if (inActive || inRoom) {
@@ -18494,8 +18570,15 @@ window.addEventListener('popstate', (e) => {
       else history.pushState({ inGame: true }, '');
       return;
     }
-    _gameHistoryPushed = false;
-    window.location.reload();
+    try {
+      if (isSpectator) handleExitSpectator();
+      else { await leaveRoomMembership(); handleForceLeaveRoom(); }
+      _gameHistoryPushed = false;
+      if (!isSpectator) showLobbyForGame(currentGameType || 'truf', { skipUrlSync: true });
+    } catch (err) {
+      routerSetRoomUrl(currentGameType, currentRoom);
+      showGameToast('Belum bisa keluar: ' + escapeHtml(err.message), 'warn');
+    }
     return;
   }
   _gameHistoryPushed = false;
@@ -18603,7 +18686,7 @@ async function handleStartTebak(room) {
       lastAction: null,
       startedAt: fb.serverTimestamp(),
     };
-    updates['roster'] = roster;
+    updates['gameState/roster'] = roster;
     await fb.update(fb.ref(fb.db, 'rooms/' + currentRoom), updates);
   } catch (e) {
     console.error('start tebak failed', e);
@@ -19128,11 +19211,14 @@ function maybeResolveTebakRound(room) {
   if (withCards0 >= 2) return; // deck empty but masih bisa main
   if (_tebakResolveScheduled) return;
   _tebakResolveScheduled = true;
+  const scheduledRoom = currentRoom;
   setTimeout(async () => {
+    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
       if (!snap.exists()) return;
       const r = snap.val();
+      if (r.host !== myUid) return;
       if (r.phase !== 'playing' || r.game !== 'tebak') return;
       const c2 = r.tebak || {};
       const deckRaw2 = c2.deck || [];
@@ -19609,11 +19695,14 @@ function maybeRunTebakBot(room) {
     // Bot has no cards — skip turn
     if (_tebakBotInFlight) return;
     _tebakBotInFlight = true;
+    const scheduledRoom = currentRoom;
     setTimeout(async () => {
+      if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
       try {
         const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
         if (!snap.exists()) return;
         const r = snap.val();
+      if (r.host !== myUid) return;
         const c2 = r.tebak || {};
         if (c2.currentPlayer !== cp) return;
         // If player reconnected during delay, abort
@@ -19629,11 +19718,14 @@ function maybeRunTebakBot(room) {
   }
   if (_tebakBotInFlight) return;
   _tebakBotInFlight = true;
+  const scheduledRoom = currentRoom;
   setTimeout(async () => {
+    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
       if (!snap.exists()) return;
       const r = snap.val();
+      if (r.host !== myUid) return;
       const c2 = r.tebak || {};
       if (c2.currentPlayer !== cp) return;
       if (r.phase !== 'playing') return;
