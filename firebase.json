@@ -16,7 +16,11 @@
       "scripts/**",
       "database.rules.json",
       "truf-game.html",
-      "artifacts/**"
+      "artifacts/**",
+      "**/.*/**",
+      ".git/**",
+      ".claude/**",
+      ".firebase/**"
     ],
     "rewrites": [
       {
