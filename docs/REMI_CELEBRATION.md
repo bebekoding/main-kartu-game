@@ -13,6 +13,12 @@ old 15-second video timeout nor the GIF's visual timer can interrupt a playing
 song. Video and GIF sizes use the viewport, up to 860px wide, with a height limit
 and touch-friendly controls. Closing media is above score overlays.
 
+The same `remiRoundHeading` helper supplies the round-results heading and the
+caption above closing media, including the closer, closing card and punished
+contributors. The caption is plain text, is attached to the animation container,
+and disappears when that container finishes. Minimizing the animation hides its
+caption too. GIF fallback retains the caption without restarting the song.
+
 The animation can be minimized without stopping the song. A trusted initial
 gesture primes the reusable audio element. If a browser nevertheless rejects
 autoplay, a visible `Putar lagu tutupan` button retries playback directly from a

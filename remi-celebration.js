@@ -45,11 +45,15 @@
         priming=false;if(!active){audio.pause();try{audio.currentTime=0;}catch(e){}settings();}
       });}catch(e){priming=false;}
     }
-    function play({key,mode='video'}={}){
+    function play({key,mode='video',heading}={}){
       if(active?.key===key)return;
       // Acquire first so replacing an animation never briefly restarts BGM.
       const release=sound.holdBgm();if(active)finish(active);
       const wrap=doc.createElement('div');wrap.className='remi-close-video-wrap';wrap.setAttribute('role','region');wrap.setAttribute('aria-label','Tutupan Remi');
+      if(heading?.text){
+        const title=doc.createElement('h2');title.className='remi-close-heading';title.textContent=heading.text;
+        title.dataset.tone=heading.tone==='discard'?'discard':'deck';wrap.appendChild(title);
+      }
       const media=doc.createElement('div');media.className='remi-close-media';
       const footer=doc.createElement('div');footer.className='remi-close-controls';
       const status=doc.createElement('p');status.setAttribute('role','status');

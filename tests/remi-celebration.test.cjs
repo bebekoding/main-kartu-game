@@ -21,7 +21,8 @@ function setup(){
   return{sound:env.sound,api,audio,audios,dom,timers,wrap:()=>dom.window.document.querySelector('.remi-close-video-wrap'),bgm:mood=>audios.find(a=>a.src===({game:'2.mp3',end:'end-music.mp3',lobby:'lobby-mbg.mp3'}[mood])),close(){api.destroy();dom.window.close();}};
 }
 test('actual BGM pauses for the full closing song and resumes only on ended',async()=>{
-  const h=setup();h.sound.playBgm('game');await settle();h.api.play({key:'a'});await settle();assert.equal(h.bgm('game').paused,true);assert.equal(h.audio.paused,false);
+  const h=setup();h.sound.playBgm('game');await settle();h.api.play({key:'a',heading:{text:'Mifty Menutup JS Fufufafa',tone:'discard'}});await settle();assert.equal(h.bgm('game').paused,true);assert.equal(h.audio.paused,false);
+  assert.equal(h.wrap().firstElementChild.className,'remi-close-heading');assert.equal(h.wrap().querySelector('h2').textContent,'Mifty Menutup JS Fufufafa');
   h.sound.playBgm('game');h.sound.unlock();h.sound.setMuted(false);await settle();assert.equal(h.bgm('game').paused,true);
   assert.equal(h.timers.size,0,'no 15-second cutoff');h.wrap().querySelector('video').dispatchEvent(new h.dom.window.Event('ended'));
   assert.equal(h.bgm('game').paused,true);h.audio.emit('ended');await settle();assert.equal(h.bgm('game').paused,false);assert.equal(h.wrap(),null);h.close();
@@ -74,9 +75,22 @@ test('gesture priming cannot pause a celebration started before the prime promis
 test('real room-event helper deduplicates final standings and permits a new round for player or spectator',()=>{
   for(const spectator of [false,true]){
     const calls=[],env=vm.createContext({isSpectator:spectator,_remiCloseMediaSeen:new Set(),showRemiCloseVideo:key=>calls.push(key)});vm.runInContext(source('maybeShowRemiCelebration'),env);
+    vm.runInContext(source('remiRoundHeading'),env);
     const room={code:'ABCD',game:'remi',phase:'remi_end',remi:{closedBy:0,roundNumber:1,lastDrawnAt:10}};
     env.maybeShowRemiCelebration(room);env.maybeShowRemiCelebration(room);room.phase='remi_tournament_end';env.maybeShowRemiCelebration(room);assert.equal(calls.length,1);
     room.phase='remi_end';room.remi.roundNumber=2;room.remi.lastDrawnAt=20;env.maybeShowRemiCelebration(room);assert.equal(calls.length,2);
     room.remi.closedBy=null;env.maybeShowRemiCelebration(room);assert.equal(calls.length,2);
   }
+});
+test('shared round heading includes the closing card and all punished players in seat order',()=>{
+  const env=vm.createContext({});vm.runInContext(source('remiRoundHeading'),env);
+  const room={players:{c:{seat:2,nickname:'C'},a:{seat:0,nickname:'A'},b:{seat:1,nickname:'B'}},remi:{closedBy:0,closeMethod:'discard',discard:[{card:{rank:'J',suit:'S'}}],helperDelta:{0:100,1:-100,2:-150}}};
+  assert.equal(env.remiRoundHeading(room).text,'A Menutup JS B & C');
+  room.remi.closeMethod='deck';assert.equal(env.remiRoundHeading(room).text,'A Menutup Dari Cabutan');
+  room.remi.closedBy=null;assert.equal(env.remiRoundHeading(room).text,'Ronde Selesai');
+});
+test('caption names remain inert text and disappear with the GIF and audio',async()=>{
+  const h=setup(),text='<img src=x onerror=alert(1)> Menutup Joker A & B';h.api.play({key:'a',mode:'gif',heading:{text,tone:'discard'}});await settle();
+  const caption=h.wrap().querySelector('h2');assert.equal(caption.textContent,text);assert.equal(caption.querySelector('img,script,svg'),null);
+  assert.ok(h.wrap().querySelector('.remi-close-media img'));h.audio.emit('ended');await settle();assert.equal(caption.isConnected,false);assert.equal(h.wrap(),null);h.close();
 });

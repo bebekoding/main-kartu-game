@@ -1430,7 +1430,8 @@
     max-height: 90vh;
     max-height: 90dvh;
     border-radius: var(--radius-card);
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     box-shadow: 0 8px 40px rgba(0,0,0,0.8), 0 0 60px rgba(255,210,90,0.3);
     border: 2px solid var(--gold);
     animation: remi-close-vid-in 0.4s ease both;
@@ -1446,11 +1447,14 @@
     background: #000;
   }
   .remi-close-controls { padding: 10px 14px; background: var(--felt-dark); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-family: var(--font-sans); }
+  .remi-close-heading { margin: 0; padding: 14px 18px; background: var(--felt-dark); color: var(--gold-bright); font-family: var(--font-display); font-size: clamp(18px, 3vw, 28px); line-height: 1.2; text-align: center; overflow-wrap: anywhere; }
+  .remi-close-heading[data-tone="discard"] { color: #f08a8a; }
   .remi-close-controls p { width: 100%; margin: 0; color: var(--cream); font-size: 13px; }
   .remi-close-controls .btn { width: auto; margin: 0; min-height: 44px; padding: 8px 12px; font-size: 12px; }
   .remi-close-controls [hidden] { display: none; }
   .remi-close-video-wrap.minimized { top: auto; bottom: max(12px, env(safe-area-inset-bottom)); transform: translateX(-50%); animation: none; width: min(92vw, 460px); }
   .remi-close-video-wrap.minimized .remi-close-media { display: none; }
+  .remi-close-video-wrap.minimized .remi-close-heading { display: none; }
   @media (max-width: 700px) { .remi-close-video-wrap { width: calc(100vw - 24px); } }
   @keyframes remi-close-vid-in {
     0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
@@ -13627,14 +13631,28 @@ function getRemiCelebration() {
   return _remiCelebration;
 }
 function stopRemiCelebration() { if (_remiCelebration) _remiCelebration.stop(); }
-function showRemiCloseVideo(key) { getRemiCelebration().play({ key, mode: 'video' }); }
-function showRemiCloseDeckGif(key) { getRemiCelebration().play({ key, mode: 'gif' }); }
+function showRemiCloseVideo(key, heading = _lastRoom && remiRoundHeading(_lastRoom)) { getRemiCelebration().play({ key, mode: 'video', heading }); }
+function showRemiCloseDeckGif(key, heading = _lastRoom && remiRoundHeading(_lastRoom)) { getRemiCelebration().play({ key, mode: 'gif', heading }); }
+function remiRoundHeading(room) {
+  const c = room.remi || {};
+  const players = Object.values(room.players || {});
+  if (c.endReason === 'stuck') return { text: (c.stuckName || 'Seseorang') + ' Tidak Bisa Membuang Kartu', color: '#f2994a' };
+  if (c.closedBy == null) return { text: 'Ronde Selesai', color: '#ffffff' };
+  const name = players.find(player => player.seat === c.closedBy)?.nickname || 'Seseorang';
+  if ((c.closeMethod || 'deck') !== 'discard') return { text: name + ' Menutup Dari Cabutan', tone: 'deck', color: '#f2c94c' };
+  const discard = Array.isArray(c.discard) ? c.discard : Object.values(c.discard || {});
+  const entry = discard[discard.length - 1], card = entry?.card || entry;
+  const label = card ? (card.rank === 'JOKER' ? 'Joker' : card.rank + (card.suit || '')) : '?';
+  const names = players.filter(player => (c.helperDelta?.[player.seat] || 0) < 0)
+    .sort((a, b) => a.seat - b.seat).map(player => player.nickname);
+  return { text: name + ' Menutup ' + label + (names.length ? ' ' + names.join(' & ') : ''), tone: 'discard', color: '#eb5757' };
+}
 function maybeShowRemiCelebration(room) {
   if (!room || room.game !== 'remi' || !['remi_end','remi_tournament_end'].includes(room.phase) || room.remi?.closedBy == null) return;
   const c = room.remi;
   const key = JSON.stringify([room.code, room.createdAt, room.rankedMatchId, c.sessionNumber, c.roundNumber, c.closedBy, c.lastDrawnAt]);
   if (_remiCloseMediaSeen.has(key)) return;
-  showRemiCloseVideo(key);
+  showRemiCloseVideo(key, remiRoundHeading(room));
   _remiCloseMediaSeen.add(key);
   if (_remiCloseMediaSeen.size > 32) _remiCloseMediaSeen.delete(_remiCloseMediaSeen.values().next().value);
 }
@@ -13689,46 +13707,9 @@ function renderRemiEndModal(room) {
 
   const title = document.getElementById('remiEndTitle');
   if (title) {
-    // Reset warna inline tiap render agar tidak nyangkut dari ronde sebelumnya.
-    title.style.color = '';
-    if (endReason === 'stuck') {
-      // Stuck → orange: "[Player] Tidak Bisa Membuang Kartu"
-      const stuckName = escapeHtml(c.stuckName || 'Seseorang');
-      title.style.color = '#f2994a';
-      setSafeHTML(title, `${stuckName} Tidak Bisa Membuang Kartu`);
-    } else if (closedBy != null) {
-      const closer = playersBySeat[closedBy];
-      const name = escapeHtml(closer ? closer.nickname : 'Seseorang');
-      const closeMethod = c.closeMethod || 'deck';
-      if (closeMethod === 'discard') {
-        // Tutup buangan → merah: "[Closer] Menutup [Kartu] [Player ditutup]"
-        const discardArr = Array.isArray(c.discard) ? c.discard : Object.values(c.discard || {});
-        const lastEntry = discardArr[discardArr.length - 1];
-        const card = (lastEntry && lastEntry.card) ? lastEntry.card : lastEntry;
-        let cardLabel = '?';
-        if (card) {
-          if (card.rank === 'JOKER') cardLabel = 'Joker';
-          else cardLabel = `${card.rank}${card.suit || ''}`;
-        }
-        // Daftar player yang ditutup = penyumbang kena penalty (helperDelta < 0),
-        // urut sesuai seat, digabung dengan " & ".
-        const ditutupNames = Object.values(room.players || {})
-          .filter(p => get(helperDelta, p.seat) < 0)
-          .sort((a, b) => a.seat - b.seat)
-          .map(p => escapeHtml(p.nickname));
-        const ditutupStr = ditutupNames.length ? ' ' + ditutupNames.join(' & ') : '';
-        title.style.color = '#eb5757';
-        setSafeHTML(title, `${name} Menutup ${escapeHtml(cardLabel)}${ditutupStr}`);
-      } else {
-        // Tutup cabutan → kuning: "[Closer] Menutup Dari Cabutan"
-        title.style.color = '#f2c94c';
-        setSafeHTML(title, `${name} Menutup Dari Cabutan`);
-      }
-    } else {
-      // Deck habis → putih: "Ronde Selesai"
-      title.style.color = '#ffffff';
-      setSafeHTML(title, 'Ronde Selesai');
-    }
+    const heading = remiRoundHeading(room);
+    title.style.color = heading.color;
+    title.textContent = heading.text;
   }
   const handJadi = c.handJadi || {};
   const handTidakJadi = c.handTidakJadi || {};
