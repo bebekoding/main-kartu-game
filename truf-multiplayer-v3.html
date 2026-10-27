@@ -1940,15 +1940,10 @@
   /* Garis pemisah vertikal antar kolom */
   #remiEndModal .end-table th + th,
   #remiEndModal .end-table td + td { border-left: 1px solid rgba(212,168,75,0.18); }
-  /* Kolom Tangan: poin positif + negatif terpisah, masing-masing lebar tetap
-     + rata kanan agar lurus vertikal antar baris. */
+  /* Kolom Tangan menampilkan satu nilai bersih kartu yang masih dipegang. */
   #remiEndModal .end-table td.ec-tangan { white-space: nowrap; }
-  #remiEndModal .end-table td.ec-tangan .tp,
-  #remiEndModal .end-table td.ec-tangan .tn {
-    display: inline-block; width: 38px; text-align: right;
-  }
-  #remiEndModal .end-table td.ec-tangan .tp { color: #8fe3b0; }
-  #remiEndModal .end-table td.ec-tangan .tn { color: #f08a8a; margin-left: 6px; }
+  #remiEndModal .end-table td.ec-tangan.positive { color: #8fe3b0; }
+  #remiEndModal .end-table td.ec-tangan.negative { color: #f08a8a; }
   body.mobile-layout #remiEndModal .end-table td,
   body.mobile-layout #remiEndModal .end-table th { padding-left: 5px; padding-right: 5px; font-size: 12px; }
 
@@ -13755,13 +13750,10 @@ function renderRemiEndModal(room) {
       // player lain warna default.
       const rowStyle = isCloser ? ' style="color:#6fcf97;font-weight:600"'
                     : (isPunished ? ' style="color:#eb5757;font-weight:600"' : '');
-      // Kolom Tangan: tampilkan poin positif (kartu jadi) dan negatif (sisa)
-      // secara terpisah dalam satu sel.
-      const tPos = fmt(jadi);                          // "+15" atau "0"
-      const tNeg = (tidakJadi < 0) ? String(tidakJadi) : '0'; // "-10" atau "0"
+      const handClass = tangan > 0 ? 'positive' : tangan < 0 ? 'negative' : '';
       return `<tr${rowStyle}>
         <td class="ec-name">${escapeHtml(p.nickname)}</td>
-        <td class="ec-tangan"><span class="tp">${tPos}</span><span class="tn">${tNeg}</span></td>
+        <td class="ec-tangan ${handClass}">${fmt(tangan)}</td>
         <td>${fmt(lb)}</td>
         <td>${fmt(hd)}</td>
         <td class="ec-round"><b>${fmt(round)}</b></td>
