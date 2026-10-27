@@ -29,6 +29,7 @@
 <script src="/ranked-leaderboard.js?v=3"></script>
 <script src="/ranked-client.js?v=3"></script>
 <script src="/ranked-ui.js?v=3"></script>
+<script src="/remi-celebration.js?v=1"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import {
@@ -1424,8 +1425,11 @@
     position: fixed;
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
-    z-index: 200;
-    border-radius: 14px;
+    z-index: 10070;
+    width: min(92vw, 860px);
+    max-height: 90vh;
+    max-height: 90dvh;
+    border-radius: var(--radius-card);
     overflow: hidden;
     box-shadow: 0 8px 40px rgba(0,0,0,0.8), 0 0 60px rgba(255,210,90,0.3);
     border: 2px solid var(--gold);
@@ -1435,16 +1439,19 @@
   .remi-close-video-wrap video,
   .remi-close-video-wrap img {
     display: block;
-    width: 320px;
-    max-height: 320px;
+    width: 100%;
+    max-height: 68vh;
+    max-height: 68dvh;
     object-fit: contain;
     background: #000;
   }
-  body.mobile-layout .remi-close-video-wrap video,
-  body.mobile-layout .remi-close-video-wrap img {
-    width: 240px;
-    max-height: 240px;
-  }
+  .remi-close-controls { padding: 10px 14px; background: var(--felt-dark); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-family: var(--font-sans); }
+  .remi-close-controls p { width: 100%; margin: 0; color: var(--cream); font-size: 13px; }
+  .remi-close-controls .btn { width: auto; margin: 0; min-height: 44px; padding: 8px 12px; font-size: 12px; }
+  .remi-close-controls [hidden] { display: none; }
+  .remi-close-video-wrap.minimized { top: auto; bottom: max(12px, env(safe-area-inset-bottom)); transform: translateX(-50%); animation: none; width: min(92vw, 460px); }
+  .remi-close-video-wrap.minimized .remi-close-media { display: none; }
+  @media (max-width: 700px) { .remi-close-video-wrap { width: calc(100vw - 24px); } }
   @keyframes remi-close-vid-in {
     0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
     100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
@@ -6559,6 +6566,7 @@ const Sound = (function () {
       const a = new Audio(BGM_FILES[mood]);
       a.loop = true;          // replay automatically when the track ends
       a.volume = BGM_BASE * bgmVol;
+      if (typeof document !== 'undefined' && a.nodeType === 1) { a.dataset.bgmMood = mood; a.hidden = true; document.body.appendChild(a); }
       bgmAudio[mood] = a;
     }
     return bgmAudio[mood];
@@ -6566,14 +6574,32 @@ const Sound = (function () {
   function applyBgmVolume() {
     Object.values(bgmAudio).forEach(a => { try { a.volume = BGM_BASE * bgmVol; } catch (e) {} });
   }
+  const bgmHolds = new Set(), settingsListeners = new Set();
+  function resumeBgm() {
+    if (!bgmMood || muted || bgmHolds.size) return;
+    const mood = bgmMood, audio = getBgm(mood);
+    Promise.resolve(audio.play()).then(() => {
+      if (muted || bgmHolds.size || bgmMood !== mood) audio.pause();
+    }).catch(() => {});
+  }
+  function holdBgm() {
+    const token = Symbol('celebration'); bgmHolds.add(token);
+    Object.values(bgmAudio).forEach(audio => { try { audio.pause(); } catch (e) {} });
+    let released = false;
+    return (resume = true) => {
+      if (released) return; released = true; bgmHolds.delete(token);
+      if (resume) resumeBgm();
+    };
+  }
+  function onSettingsChange(listener) { settingsListeners.add(listener); return () => settingsListeners.delete(listener); }
+  function notifySettings() { settingsListeners.forEach(listener => listener()); }
   function playBgm(mood) {
     if (bgmMood === mood) return;
     if (bgmMood && bgmAudio[bgmMood]) { try { bgmAudio[bgmMood].pause(); } catch (e) {} }
     bgmMood = mood;
-    if (!mood || muted) return;
-    const a = getBgm(mood);
-    try { a.currentTime = 0; } catch (e) {}
-    a.play().catch(() => {}); // may reject before first user gesture; unlock() retries
+    if (!mood) return;
+    const audio = getBgm(mood); try { audio.currentTime = 0; } catch (e) {}
+    resumeBgm();
   }
 
   // Card-played SFX (4.mp3) — preloaded pool so we don't re-fetch/decode each play
@@ -6689,8 +6715,9 @@ const Sound = (function () {
       if (master) master.gain.value = 0;
     } else {
       if (master) master.gain.value = SFX_MASTER_BASE * sfxVol;
-      if (bgmMood) { const a = getBgm(bgmMood); a.play().catch(() => {}); }
+      resumeBgm();
     }
+    notifySettings();
   }
   function isMuted() { return muted; }
   function setBgmVol(v) {
@@ -6703,23 +6730,20 @@ const Sound = (function () {
     try { localStorage.setItem('truf_sfx_vol', String(sfxVol)); } catch (e) {}
     if (master && !muted) master.gain.value = SFX_MASTER_BASE * sfxVol;
     if (winAudio) { try { winAudio.volume = WIN_BASE * sfxVol; } catch (e) {} }
+    notifySettings();
   }
   function getBgmVol() { return bgmVol; }
   function getSfxVol() { return sfxVol; }
   function unlock() {
     ensure();
-    // Retry the pending background track now that we have a user gesture
-    if (bgmMood && !muted) {
-      const a = getBgm(bgmMood);
-      if (a.paused) a.play().catch(() => {});
-    }
+    resumeBgm();
   }
 
   return {
     cardDrop, cardReveal, chatPop, disconnect, reconnect, botReplace,
     turnBell, turnReminder,
     modeAtas, modeBawah, winFanfare, stopWin, cekiFanfare, playBgm, setMuted, isMuted, unlock,
-    setBgmVol, setSfxVol, getBgmVol, getSfxVol,
+    setBgmVol, setSfxVol, getBgmVol, getSfxVol, holdBgm, onSettingsChange,
   };
 })();
 
@@ -7475,6 +7499,7 @@ function authSetError(msg) {
 }
 
 function showAuthView() {
+  stopRemiCelebration();
   stopAutoCleanup();
   if (isSpectator) handleExitSpectator();
   if (_rankedClient) _rankedClient.stop();
@@ -8354,6 +8379,7 @@ function setupAudioControls() {
   // Browsers block audio until a user gesture — unlock on first interaction
   const unlock = () => {
     Sound.unlock();
+    getRemiCelebration().unlock();
     document.removeEventListener('pointerdown', unlock);
     document.removeEventListener('keydown', unlock);
   };
@@ -10237,6 +10263,7 @@ function onSpectatorRoomUpdate(room) {
     handleExitSpectator();
     return;
   }
+  Sound.playBgm(desiredBgmMood(room));
   // Render seperti Remi normal, dengan flag isSpectator
   if (lastPhase !== room.phase) {
     enterRemiGameView(room);
@@ -10270,6 +10297,7 @@ function onSpectatorRoomUpdate(room) {
 }
 
 function handleExitSpectator() {
+  stopRemiCelebration();
   const returnToAdmin = _spectatorOrigin === 'admin' && hasAdminAccess();
   document.getElementById('spectatorExitBtn').hidden = true;
   stopHeartbeat();
@@ -10389,6 +10417,7 @@ async function handleLeaveRoom() {
 }
 
 function handleForceLeaveRoom() {
+  stopRemiCelebration();
   if (_rankedClient) _rankedClient.observe(null);
   document.getElementById('hostControlBtn').classList.add('hidden');
   closeHostControl();
@@ -13595,55 +13624,24 @@ function showMatchCapPopup(name, type) {
   wrap.onclick = () => { if (wrap.classList.contains('minimized')) wrap.classList.remove('minimized'); };
 }
 
-// Show a short celebration video when a player closes the round.
-function showRemiCloseVideo() {
-  // Remove any existing video overlay
-  const old = document.querySelector('.remi-close-video-wrap');
-  if (old) old.remove();
-  const wrap = document.createElement('div');
-  wrap.className = 'remi-close-video-wrap';
-  const vid = document.createElement('video');
-  vid.src = 'close-celebration.mp4?v=2';
-  vid.autoplay = true;
-  vid.playsInline = true;
-  vid.muted = false;
-  // Respect the user's SFX volume setting
-  try { vid.volume = Math.min(1, Sound.getSfxVol()); } catch (e) { vid.volume = 0.7; }
-  if (Sound.isMuted()) vid.muted = true;
-  wrap.appendChild(vid);
-  document.body.appendChild(wrap);
-  // Remove after the video ends, or after 15s max as safety net.
-  const cleanup = () => {
-    wrap.style.animation = 'remi-close-vid-out 0.3s ease both';
-    setTimeout(() => { try { wrap.remove(); } catch (e) {} }, 350);
-  };
-  vid.addEventListener('ended', cleanup);
-  setTimeout(cleanup, 15000);
-  // Allow click-to-dismiss
-  wrap.addEventListener('click', cleanup);
+// Use one audio element and hold background music through the entire song.
+let _remiCelebration = null;
+const _remiCloseMediaSeen = new Set();
+function getRemiCelebration() {
+  if (!_remiCelebration) _remiCelebration = RemiCelebration.create({ sound: Sound });
+  return _remiCelebration;
 }
-function showRemiCloseDeckGif() {
-  const old = document.querySelector('.remi-close-video-wrap');
-  if (old) old.remove();
-  const bust = '?v=' + Date.now(); // cache-bust immutable assets
-  const wrap = document.createElement('div');
-  wrap.className = 'remi-close-video-wrap';
-  const img = document.createElement('img');
-  img.src = 'close-deck.gif' + bust;
-  wrap.appendChild(img);
-  const aud = new Audio('close-deck.mp3' + bust);
-  try { aud.volume = Math.min(1, Sound.getSfxVol()); } catch (e) { aud.volume = 0.7; }
-  if (Sound.isMuted()) aud.volume = 0;
-  aud.play().catch(() => {});
-  document.body.appendChild(wrap);
-  const cleanup = () => {
-    try { aud.pause(); aud.currentTime = 0; } catch (e) {}
-    wrap.style.animation = 'remi-close-vid-out 0.3s ease both';
-    setTimeout(() => { try { wrap.remove(); } catch (e) {} }, 350);
-  };
-  aud.addEventListener('ended', cleanup);
-  setTimeout(cleanup, 6000);
-  wrap.addEventListener('click', cleanup);
+function stopRemiCelebration() { if (_remiCelebration) _remiCelebration.stop(); }
+function showRemiCloseVideo(key) { getRemiCelebration().play({ key, mode: 'video' }); }
+function showRemiCloseDeckGif(key) { getRemiCelebration().play({ key, mode: 'gif' }); }
+function maybeShowRemiCelebration(room) {
+  if (!room || room.game !== 'remi' || !['remi_end','remi_tournament_end'].includes(room.phase) || room.remi?.closedBy == null) return;
+  const c = room.remi;
+  const key = JSON.stringify([room.code, room.createdAt, room.rankedMatchId, c.sessionNumber, c.roundNumber, c.closedBy, c.lastDrawnAt]);
+  if (_remiCloseMediaSeen.has(key)) return;
+  showRemiCloseVideo(key);
+  _remiCloseMediaSeen.add(key);
+  if (_remiCloseMediaSeen.size > 32) _remiCloseMediaSeen.delete(_remiCloseMediaSeen.values().next().value);
 }
 let _remiEndMinimized = false; // round-end score popup minimized state
 // Fully hide a Remi modal overlay so it can NEVER intercept clicks while
@@ -13814,10 +13812,9 @@ function renderRemiEndModal(room) {
   overlay.style.pointerEvents = 'none';
   overlay.style.background = 'transparent';
   // Media saat ada player CLOSE — video celebration untuk semua jenis tutupan.
-  if (!_remiEndApplauseShown && closedBy != null) {
+  if (closedBy != null) {
     _remiEndApplauseShown = true;
-    try { Sound.winFanfare(); } catch (e) {}
-    try { showRemiCloseVideo(); } catch (e) { console.error('close video fail', e); }
+    try { maybeShowRemiCelebration(room); } catch (e) { console.error('close video fail', e); }
   }
   const isHost = room.host === myUid;
   // Re-attach click handlers defensively (the DOM reparenting above can drop
@@ -14009,6 +14006,7 @@ function renderRemiTournamentEnd(room) {
     return;
   }
   // Hide round-end modal
+  try { maybeShowRemiCelebration(room); } catch (e) { console.error('close video fail', e); }
   hideRemiOverlay(document.getElementById('remiEndModal'));
   const totals = room.totals || {};
   const players = Object.values(room.players || {});

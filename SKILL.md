@@ -227,6 +227,7 @@ Setiap interactive component punya:
 - `login-deco-2.jpg` (242KB) — scenic backdrop untuk lobby + admin
 - Asli PNG 1.9MB & 2MB → JPG quality 75 width 1280 (saving 89%)
 - BGM: lobby-mbg.mp3, 2.mp3 (game), 5.mp3 (tense), end-music.mp3
+- Tutupan Remi: `remi-celebration.js` mengatur video/GIF besar dan audio terpisah. BGM wajib berhenti sampai audio selesai; perubahan mood menunggu. Autoplay ditolak menampilkan tombol Putar lagu tutupan. Sembunyikan animasi tidak memotong lagu. Hormati mute/volume dan hentikan seluruh media saat keluar room.
 - SFX: 4.mp3 (kartu), ceki.mp3 (3× cosmetic), close-celebration.mp4, close-deck.gif + mp3
 
 ---

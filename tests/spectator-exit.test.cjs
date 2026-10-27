@@ -10,6 +10,7 @@ function setup(origin='lobby'){
     currentRoom:'ABCD',currentGameType:'remi',mySeat:0,lastPhase:'playing',chatLastCount:0,
     roomUnsubscribe:()=>events.push('unsubscribe'),hasAdminAccess:()=>origin==='admin',
     stopHeartbeat:()=>events.push('stop-heartbeat'),stopCountdownTicker:()=>events.push('stop-ticker'),
+    stopRemiCelebration:()=>events.push('stop-celebration'),
     clearGameHistoryGuard:()=>events.push('clear-history'),closeSpectateRoomsModal:()=>{},closeHostControl:()=>{},
     TurnReminder:{reset:()=>{}},RemiTurnTimer:{reset:()=>{}},Voice:{leave:()=>events.push('leave-voice')},
     Sound:{playBgm:()=>{},stopWin:()=>{}},setLayoutFloatingVisible:()=>{},
