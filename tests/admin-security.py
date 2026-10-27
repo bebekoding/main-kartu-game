@@ -122,7 +122,8 @@ class AdministratorSecurity(unittest.TestCase):
     def test_leaderboard_admin_exception_no_longer_uses_legacy_sessions(self):
         score={'matches':1,'points':5,'username':'victim'}
         self.check('leaderboards/remi/victim','PUT',score)
-        self.check('leaderboards/remi/victim','PUT',score,uid='admin',allow=True)
+        # Administrators also need the immutable match/receipt protocol now.
+        self.check('leaderboards/remi/victim','PUT',score,uid='admin')
 
     def test_voice_and_chat_admin_exceptions_are_uid_bound(self):
         self.data['rooms']['ZZ0I']['voice']={'victim':{'name':'Victim','muted':False}}

@@ -25,6 +25,9 @@
 <script src="/vendor/dompurify/purify.min.js?v=3.4.17"></script>
 <script src="/game-display.js?v=1"></script>
 <script src="/room-membership.js?v=2"></script>
+<script src="/ranked-leaderboard.js?v=3"></script>
+<script src="/ranked-client.js?v=3"></script>
+<script src="/ranked-ui.js?v=3"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import {
@@ -5385,6 +5388,23 @@
     .auth-field input { padding: 12px 44px 12px 20px; font-size: 13px; }
     .auth-submit { padding: 12px 20px; font-size: 14px; }
   }
+
+  #rankedResultsModal { z-index: 10050; }
+  #rankedResultsModal[hidden] { display: none; }
+  .ranked-result-modal { max-width: 680px; max-height: 90vh; overflow-y: auto; }
+  .ranked-result-note { border-top: 1px solid rgba(212,168,75,0.3); margin-top: 16px; padding-top: 12px; font-family: var(--font-sans); font-size: 13px; }
+  .ranked-result-note .btn { margin-top: 6px; }
+  .ranked-result-context, .ranked-result-help { font-family: var(--font-sans); font-size: 12px; line-height: 1.6; color: var(--cream); opacity: 0.85; }
+  .ranked-result-table { overflow-x: auto; margin: 16px 0; border: 1px solid rgba(212,168,75,0.3); border-radius: var(--radius-panel); }
+  .ranked-result-table table { width: 100%; border-collapse: collapse; min-width: 420px; font-family: var(--font-sans); font-size: 13px; text-align: left; }
+  .ranked-result-table th, .ranked-result-table td { padding: 10px; border-bottom: 1px solid rgba(212,168,75,0.18); }
+  .ranked-result-table th { color: var(--gold-bright); font-weight: 700; }
+  .ranked-result-table small { display: block; opacity: 0.7; margin-top: 3px; }
+  .ranked-result-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  .ranked-result-actions .btn { flex: 1; min-width: 110px; margin: 0; }
+  .ranked-result-error { color: var(--red); font-family: var(--font-sans); font-size: 13px; }
+  #rankedMatchSelect { width: 100%; margin-top: 6px; padding: 10px; background: var(--felt-dark); color: var(--cream); border: 1px solid rgba(212,168,75,0.5); border-radius: var(--radius-control); font-family: var(--font-sans); }
+
 </style>
 </head>
 <body>
@@ -5517,6 +5537,7 @@
       </button>
     </div>
     <div style="text-align:center;margin-top:14px;">
+      <button class="link-btn hidden" data-ranked-pending type="button">Hasil peringkat</button>
       <button class="link-btn" id="openChangePwBtn">🔒 Ganti password</button>
     </div>
   </div>
@@ -5525,6 +5546,7 @@
   <div class="card-box hidden" id="lobbyView">
     <div class="back-row">
       <button class="link-btn" id="backToGameSelectBtn">← Pilih game lain</button>
+      <button class="link-btn hidden" data-ranked-pending type="button">Hasil peringkat</button>
     </div>
     <h2 id="lobbyHeading" class="lobby-heading">Lobby</h2>
 
@@ -5627,6 +5649,7 @@
     </div>
 
     <div class="room-actions">
+      <button class="btn hidden" data-ranked-pending type="button">Hasil peringkat</button>
       <button class="btn danger" id="leaveRoomBtn">Keluar</button>
       <button class="btn primary" id="startGameBtn" disabled>Mulai Permainan</button>
     </div>
@@ -5650,6 +5673,22 @@
 <button id="muteBtn" class="top-ctrl-btn mute-btn" title="Suara on/off">&#128266;</button>
 <button id="audioSettingsBtn" class="top-ctrl-btn audio-settings-btn" title="Atur volume">&#127911;</button>
 <button id="hostControlBtn" class="top-ctrl-btn host-control-btn hidden" type="button">Host</button>
+<div class="modal-overlay" id="rankedResultsModal" role="dialog" aria-modal="true" aria-labelledby="rankedResultTitle" aria-hidden="true" hidden>
+  <div class="modal-card ranked-result-modal">
+    <h2 class="modal-title" id="rankedResultTitle">Konfirmasi Hasil Peringkat</h2>
+    <label for="rankedMatchSelect" class="ranked-result-help">Hasil pertandingan</label>
+    <select id="rankedMatchSelect" aria-label="Pilih hasil pertandingan"></select>
+    <div id="rankedResultBody"></div>
+    <p id="rankedResultStatus" role="status" aria-live="polite"></p>
+    <p id="rankedResultError" class="ranked-result-error hidden" role="alert"></p>
+    <div class="ranked-result-actions">
+      <button class="btn primary hidden" id="rankedApproveBtn" type="button">Setujui Hasil</button>
+      <button class="btn danger hidden" id="rankedRejectBtn" type="button">Tolak Hasil</button>
+      <button class="btn hidden" id="rankedRetryBtn" type="button">Coba Lagi</button>
+      <button class="btn" id="rankedCloseBtn" type="button">Tutup</button>
+    </div>
+  </div>
+</div>
 <div class="modal-overlay" id="hostControlModal" role="dialog" aria-modal="true" aria-labelledby="hostControlTitle" aria-hidden="true" hidden>
   <div class="modal-card" style="max-width:440px;">
     <h2 class="modal-title" id="hostControlTitle">Pengelolaan Host</h2>
@@ -7431,6 +7470,8 @@ function authSetError(msg) {
 }
 
 function showAuthView() {
+  if (_rankedClient) _rankedClient.stop();
+  if (_rankedUI) _rankedUI.close();
   setLayoutFloatingVisible(true);
   document.getElementById('authView').classList.remove('hidden');
   document.getElementById('gameSelectView').classList.add('hidden');
@@ -7601,6 +7642,7 @@ async function doLogin() {
 }
 
 function finishLogin({ name, username }) {
+  getRankedClient().start();
   // Identitas (myUid) = uid Firebase Auth. Sesi login dijaga Firebase sendiri;
   // blob di localStorage hanya menyimpan profil tampilan, bukan kredensial.
   if (!myUid) myUid = (window.firebase && window.firebase.authUid) || null;
@@ -7638,6 +7680,8 @@ function finishLogin({ name, username }) {
 }
 
 function doLogout() {
+  if (_rankedClient) _rankedClient.stop();
+  if (_rankedUI) _rankedUI.close();
   clearAdminSession();
   try { localStorage.removeItem('mk_session'); } catch (e) {}
   try { fb.signOut(); } catch (e) {}
@@ -7885,95 +7929,40 @@ async function adminDeleteRoom(code) {
 }
 
 // ============================================================
-// LEADERBOARD / RANK — per-game ranking by username
-//   • Only bot-free matches (all human, all registered) count.
-//   • Points by final rank: 1st=6, 2nd=4, 3rd=2, 4th=1.
-//   • Every 5 matches → +5 bonus points.
-//   • Displayed score = total points / matches played.
+// LEADERBOARD: immutable results, explicit participant approvals and one
+// atomic credit for the entire original roster. Database rules enforce v3.
 // ============================================================
-const RANK_POINTS = [4, 3, 2, 1]; // index = rank-1
-const MIN_RANKED_ROUNDS = 10;     // Remi match must reach ≥10 rounds to count
-const _lbRecordedLocal = new Set(); // room codes already recorded this session
-
-async function maybeRecordLeaderboard(room) {
-  if (!room || room.host !== myUid) return; // only the host records
-  const game = room.game || 'truf';
-  const endPhase = (game === 'remi') ? 'remi_tournament_end'
-                 : (game === 'cangkul') ? 'cangkul_tournament_end'
-                 : (game === 'tebak') ? 'tebak_match_end'
-                 : 'tournament_end';
-  if (room.phase !== endPhase) {
-    // A new match started → clear the local guard so the NEXT end records.
-    if (room.code) _lbRecordedLocal.delete(room.code);
-    return;
-  }
-  if (room.leaderboardRecorded) return;           // already recorded (synced flag)
-  if (_lbRecordedLocal.has(room.code)) return;    // local guard against double-fire
-  _lbRecordedLocal.add(room.code);
-  // Mark in DB immediately so other host-migrations don't re-record.
-  fb.update(fb.ref(fb.db, 'rooms/' + room.code), { leaderboardRecorded: true }).catch(() => {});
-
-  const players = Object.values(room.players || {});
-  if (players.length === 0) return;
-  // Only count matches with NO bots and where every player is registered.
-  const anyBot = players.some(p => p.isBot);
-  const allRegistered = players.every(p => p.username);
-  if (anyBot || !allRegistered) {
-    console.log('[leaderboard] match NOT counted (bot present or unregistered player)');
-    return;
-  }
-  // Remi: the match must have lasted at least 10 rounds to count for rank —
-  // EXCEPT when it ended because a player hit ±1000 points (always valid).
-  if (game === 'remi') {
-    const roundsPlayed = (room.remi && room.remi.roundNumber) || 0;
-    const endedByPoints = (room.remi && room.remi.matchOverReason === 'points');
-    if (!endedByPoints && roundsPlayed < MIN_RANKED_ROUNDS) {
-      console.log('[leaderboard] Remi match NOT counted — only', roundsPlayed, 'rounds (<', MIN_RANKED_ROUNDS, ')');
-      return;
-    }
-  }
-  // Tebak Kartu: min 10 rounds to count for rank.
-  if (game === 'tebak') {
-    const roundsPlayed = (room.tebak && room.tebak.roundNumber) || 0;
-    if (roundsPlayed < MIN_RANKED_ROUNDS) {
-      console.log('[leaderboard] Tebak match NOT counted — only', roundsPlayed, 'rounds (<', MIN_RANKED_ROUNDS, ')');
-      return;
-    }
-  }
-  const totals = room.totals || {};
-  const ranked = players.map(p => ({
-    username: p.username,
-    name: p.nickname,
-    total: (totals[p.seat] != null ? totals[p.seat] : (totals[String(p.seat)] || 0)),
-  })).sort((a, b) => b.total - a.total);
-
-  // Dynamic RANK_POINTS based on player count (Tebak: 4→[4,3,2,1], 5→[5,4,3,2,1], 6→[6,5,4,3,2,1])
-  const dynRankPts = ranked.map((_, i) => ranked.length - i);
-  for (let i = 0; i < ranked.length; i++) {
-    const r = ranked[i];
-    const pts = dynRankPts[i] || 0;
-    const key = sanitizeKey(String(r.username).toLowerCase());
-    try {
-      const lbRef = fb.ref(fb.db, `leaderboards/${game}/${key}`);
-      const snap = await fb.get(lbRef);
-      const cur = snap.exists() ? snap.val() : { matches: 0, points: 0 };
-      const newMatches = (cur.matches || 0) + 1;
-      let newPoints = (cur.points || 0) + pts;
-      if (newMatches % 5 === 0) newPoints += 5; // bonus every 5 matches
-      await fb.set(lbRef, {
-        username: r.username,
-        name: r.name,
-        matches: newMatches,
-        points: newPoints,
-        // srcRoom dipakai rules untuk memastikan penulisnya memang host dari
-        // room yang ada — leaderboard memang ditulis host untuk semua pemain,
-        // jadi tidak bisa dibatasi "hanya baris sendiri".
-        srcRoom: room.code || null,
-      });
-    } catch (e) { console.error('[leaderboard] record failed for', r.username, e); }
-  }
-  console.log('[leaderboard] recorded', game, 'match for', ranked.map(r => r.username));
+const MIN_RANKED_ROUNDS = 10;
+let _rankedClient = null, _rankedUI = null;
+function getRankedUI() {
+  if (!_rankedUI) _rankedUI = RankedUI.create({
+    client: getRankedClient, uid: () => window.firebase.authUid,
+    spectator: () => isSpectator,
+  });
+  return _rankedUI;
 }
+function getRankedClient() {
+  if (!_rankedClient) _rankedClient = RankedClient.create(fb, {
+    changed: state => getRankedUI().render(state),
+    error: (error, id) => getRankedUI().fail(error, id),
+  });
+  return _rankedClient;
+}
+function maybeRecordLeaderboard(room) {
+  getRankedClient().observe(isSpectator ? null : room);
+}
+async function preserveRankedResultBeforeReset(room) {
+  if (!room || !room.rankedMatchId || !RankedLeaderboard.completedMatch(room)) return true;
+  try { await getRankedClient().propose(room); return true; }
+  catch (error) {
+    showGameToast('Hasil akhir belum tersimpan. Periksa koneksi lalu coba lagi.', 'warn');
+    return false;
+  }
+}
+window.addEventListener('firebase-identity-changed', () => {
+  if (_rankedClient) _rankedClient.stop();
+  if (_rankedUI) _rankedUI.close();
+});
 
 // Open the rank modal for a given game and render sorted standings.
 async function openRankModal(game) {
@@ -10351,6 +10340,9 @@ async function leaveRoomMembership() {
   const room = snap.val();
   const me = (room.players || {})[myUid];
   if (!me) return;
+  if (room.rankedMatchId && !(await preserveRankedResultBeforeReset(room))) {
+    throw new Error('Hasil akhir belum tersimpan. Coba keluar kembali setelah koneksi pulih.');
+  }
   const changes = {};
   if (room.phase === 'lobby') {
     changes['players/' + myUid] = null;
@@ -10384,6 +10376,7 @@ async function handleLeaveRoom() {
 }
 
 function handleForceLeaveRoom() {
+  if (_rankedClient) _rankedClient.observe(null);
   document.getElementById('hostControlBtn').classList.add('hidden');
   closeHostControl();
   // Drop the room code from the URL — back to /<game> lobby (or / if unknown).
@@ -11222,9 +11215,9 @@ function renderRemiGameView(room) {
   const curRound = c.roundNumber || 1;
   setText('remiRoundNum', curRound);
   // Notify once when the match reaches the minimum rounds for rank recording.
-  if (curRound === MIN_RANKED_ROUNDS && !_remiRankValidNotified) {
+  if (curRound === MIN_RANKED_ROUNDS && room.rankedMatchId && !_remiRankValidNotified) {
     _remiRankValidNotified = true;
-    showGameToast('🏆 Ronde ke-' + MIN_RANKED_ROUNDS + ' tercapai · match ini <b>valid untuk peringkat</b>!', 'good', 6000);
+    showGameToast('🏆 Ronde ke-' + MIN_RANKED_ROUNDS + ' dimulai · selesaikan ronde ini untuk mengajukan hasil peringkat.', 'good', 6000);
   }
   if (curRound < MIN_RANKED_ROUNDS) _remiRankValidNotified = false; // reset if somehow went back
   setText('remiDeckCount', deck.length);
@@ -14222,6 +14215,7 @@ async function handleRemiRestart() {
     if (!snap.exists()) return;
     const r = snap.val();
     if (r.host !== myUid) return;
+    if (!(await preserveRankedResultBeforeReset(r))) return;
     await fb.update(fb.ref(fb.db, 'rooms/' + currentRoom), {
       phase: 'lobby', remi: null, totals: null, leaderboardRecorded: null,
     });
@@ -14371,6 +14365,7 @@ async function handleCangkulRemoveBot(botUid) {
 
 async function handleStartGame() {
   if (!currentRoom) return;
+  const startingUid = myUid;
 
   setBtnLoading('startGameBtn', true, 'Memulai...');
 
@@ -14378,7 +14373,7 @@ async function handleStartGame() {
     // Re-fetch latest room state to be safe
     const roomSnap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
     if (!roomSnap.exists()) throw new Error('Room tidak ditemukan');
-    const room = roomSnap.val();
+    let room = roomSnap.val();
 
     // Only host can start
     if (room.host !== myUid) {
@@ -14386,6 +14381,10 @@ async function handleStartGame() {
       setBtnLoading('startGameBtn', false);
       return;
     }
+
+    if (room.phase !== 'lobby') { setBtnLoading('startGameBtn', false); return; }
+    room = await getRankedClient().prepare(room);
+    if (myUid !== startingUid || fb.authUid !== startingUid) { setBtnLoading('startGameBtn', false); return; }
 
     // Branch by game type — cangkul/remi/tebak have their own start flows
     if (room.game === 'cangkul') {
@@ -16837,6 +16836,7 @@ async function handleCangkulRestart() {
     updates['phase'] = 'lobby';
     updates['cangkul'] = null;
     updates['totals'] = null;
+    if (!(await preserveRankedResultBeforeReset(r))) return;
     updates['leaderboardRecorded'] = null;
     await fb.update(fb.ref(fb.db, 'rooms/' + currentRoom), updates);
   } catch (e) { console.error('cangkul restart failed', e); }
@@ -18173,6 +18173,7 @@ async function handleRestartClick() {
   if (!snap.exists()) return;
   const room = snap.val();
   if (room.host !== myUid) return;
+  if (!(await preserveRankedResultBeforeReset(room))) return;
 
   // Full reset back to the lobby: clear all game state, remove bot players,
   // keep human players (clear their disconnect flags) so the host can start fresh.
@@ -19564,6 +19565,7 @@ function renderTebakMatchEnd(room) {
   const rematchBtn = document.getElementById('tebakRematchBtn');
   if (rematchBtn) rematchBtn.onclick = async () => {
     try {
+      if (!(await preserveRankedResultBeforeReset(room))) return;
       await fb.update(fb.ref(fb.db, 'rooms/' + currentRoom), {
         phase: 'lobby', totals: null, tebak: null, leaderboardRecorded: null
       });

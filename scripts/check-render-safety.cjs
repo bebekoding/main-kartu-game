@@ -33,6 +33,8 @@ function check(html) {
 }
 if (require.main === module) {
   const failures = check(fs.readFileSync(path.join(__dirname,'../truf-multiplayer-v3.html'),'utf8'));
+  const rankedUI=path.join(__dirname,'../ranked-ui.js');
+  if(fs.existsSync(rankedUI))failures.push(...check('<script>'+fs.readFileSync(rankedUI,'utf8')+'</script>'));
   if (failures.length) { console.error(failures.join('\n')); process.exitCode=1; }
   else console.log('All inline scripts parse; no unfiltered HTML writes.');
 }

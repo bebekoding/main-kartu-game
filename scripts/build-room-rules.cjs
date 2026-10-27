@@ -78,4 +78,5 @@ room.$gameState = {'.write': `${valid} && !$gameState.matches(/^(${reserved})$/)
 require('./card-schema.cjs')(room, `${valid} && ${member}`);
 rules.rules.rooms.$roomCode = room;
 require('./admin-policy.cjs')(rules);
+require('./leaderboard-policy.cjs')(rules, room);
 fs.writeFileSync(file, JSON.stringify(rules,null,2)+'\n');
