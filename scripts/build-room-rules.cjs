@@ -75,5 +75,6 @@ for (const field of ['phase','gameState','roster','maxPlayers','botDifficulty','
 for (const field of ['chat','voice','signals']) room[field] = rules.rules.rooms.$roomCode[field];
 const reserved = 'host|players|seats|membershipVersion|hostRequests|phase|gameState|roster|maxPlayers|botDifficulty|code|game|createdAt|chat|voice|signals';
 room.$gameState = {'.write': `${valid} && !$gameState.matches(/^(${reserved})$/) && ${member}`};
+require('./card-schema.cjs')(room, `${valid} && ${member}`);
 rules.rules.rooms.$roomCode = room;
 fs.writeFileSync(file, JSON.stringify(rules,null,2)+'\n');

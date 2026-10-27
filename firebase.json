@@ -15,6 +15,8 @@
       "tests/**",
       "scripts/**",
       "database.rules.json",
+      "package.json",
+      "package-lock.json",
       "truf-game.html",
       "artifacts/**",
       "**/.*/**",
@@ -68,6 +70,14 @@
       }
     ],
     "headers": [
+      {
+        "source": "/game-display.js",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+      },
+      {
+        "source": "/vendor/dompurify/**",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+      },
       {
         "source": "**/*.html",
         "headers": [

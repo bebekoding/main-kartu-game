@@ -81,7 +81,682 @@
           }
         },
         "$gameState": {
-          ".write": "auth != null && auth.token.firebase.sign_in_provider === 'password' && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && !$gameState.matches(/^(host|players|seats|membershipVersion|hostRequests|phase|gameState|roster|maxPlayers|botDifficulty|code|game|createdAt|chat|voice|signals)$/) && (root.child('rooms').child($roomCode).child('players').child(auth.uid).exists() && root.child('rooms').child($roomCode).child('players').child(auth.uid).child('uid').val() === auth.uid && root.child('rooms').child($roomCode).child('players').child(auth.uid).child('isBot').val() === false && root.child('rooms').child($roomCode).child('seats').child(root.child('rooms').child($roomCode).child('players').child(auth.uid).child('seat').val() + '').val() === auth.uid)"
+          ".write": "auth != null && auth.token.firebase.sign_in_provider === 'password' && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && !$gameState.matches(/^(host|players|seats|membershipVersion|hostRequests|phase|gameState|roster|maxPlayers|botDifficulty|code|game|createdAt|chat|voice|signals|hands|bidding|play|remi|cangkul|tebak)$/) && (root.child('rooms').child($roomCode).child('players').child(auth.uid).exists() && root.child('rooms').child($roomCode).child('players').child(auth.uid).child('uid').val() === auth.uid && root.child('rooms').child($roomCode).child('players').child(auth.uid).child('isBot').val() === false && root.child('rooms').child($roomCode).child('seats').child(root.child('rooms').child($roomCode).child('players').child(auth.uid).child('seat').val() + '').val() === auth.uid)"
+        },
+        "hands": {
+          ".write": "auth != null && auth.token.firebase.sign_in_provider === 'password' && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && (root.child('rooms').child($roomCode).child('players').child(auth.uid).exists() && root.child('rooms').child($roomCode).child('players').child(auth.uid).child('uid').val() === auth.uid && root.child('rooms').child($roomCode).child('players').child(auth.uid).child('isBot').val() === false && root.child('rooms').child($roomCode).child('seats').child(root.child('rooms').child($roomCode).child('players').child(auth.uid).child('seat').val() + '').val() === auth.uid)",
+          ".validate": "newData.hasChildren()",
+          "$seat": {
+            ".validate": "$seat.matches(/^[0-5]$/) && newData.hasChildren()",
+            "$index": {
+              ".validate": "$index.matches(/^(0|[1-9]|[1-4][0-9]|5[0-5])$/) && ((newData.child('rank').isString() && newData.child('rank').val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/) && newData.child('suit').isString() && newData.child('suit').val().matches(/^[SHCD]$/) && !newData.child('color').exists()))",
+              "rank": {
+                ".validate": "newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/)"
+              },
+              "suit": {
+                ".validate": "newData.isString() && newData.val().matches(/^[SHCD]$/)"
+              },
+              "color": {
+                ".validate": "newData.isString() && newData.val().matches(/^(red|black)$/)"
+              },
+              "fromDiscardBy": {
+                ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+              },
+              "mustLayThisTurn": {
+                ".validate": "newData.isBoolean()"
+              },
+              "justPicked": {
+                ".validate": "newData.isBoolean()"
+              },
+              "justPickedSeq": {
+                ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 56"
+              },
+              "pickupNonce": {
+                ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9]{1,80}$/)"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          }
+        },
+        "bidding": {
+          ".write": "auth != null && auth.token.firebase.sign_in_provider === 'password' && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && (root.child('rooms').child($roomCode).child('players').child(auth.uid).exists() && root.child('rooms').child($roomCode).child('players').child(auth.uid).child('uid').val() === auth.uid && root.child('rooms').child($roomCode).child('players').child(auth.uid).child('isBot').val() === false && root.child('rooms').child($roomCode).child('seats').child(root.child('rooms').child($roomCode).child('players').child(auth.uid).child('seat').val() + '').val() === auth.uid)",
+          "bids": {
+            "$seat": {
+              "cards": {
+                ".validate": "newData.hasChildren()",
+                "$index": {
+                  ".validate": "$index.matches(/^(0|[1-9]|[1-4][0-9]|5[0-5])$/) && ((newData.child('rank').isString() && newData.child('rank').val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/) && newData.child('suit').isString() && newData.child('suit').val().matches(/^[SHCD]$/) && !newData.child('color').exists()))",
+                  "rank": {
+                    ".validate": "newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/)"
+                  },
+                  "suit": {
+                    ".validate": "newData.isString() && newData.val().matches(/^[SHCD]$/)"
+                  },
+                  "color": {
+                    ".validate": "newData.isString() && newData.val().matches(/^(red|black)$/)"
+                  },
+                  "fromDiscardBy": {
+                    ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+                  },
+                  "mustLayThisTurn": {
+                    ".validate": "newData.isBoolean()"
+                  },
+                  "justPicked": {
+                    ".validate": "newData.isBoolean()"
+                  },
+                  "justPickedSeq": {
+                    ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 56"
+                  },
+                  "pickupNonce": {
+                    ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9]{1,80}$/)"
+                  },
+                  "$other": {
+                    ".validate": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "play": {
+          ".write": "auth != null && auth.token.firebase.sign_in_provider === 'password' && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && (root.child('rooms').child($roomCode).child('players').child(auth.uid).exists() && root.child('rooms').child($roomCode).child('players').child(auth.uid).child('uid').val() === auth.uid && root.child('rooms').child($roomCode).child('players').child(auth.uid).child('isBot').val() === false && root.child('rooms').child($roomCode).child('seats').child(root.child('rooms').child($roomCode).child('players').child(auth.uid).child('seat').val() + '').val() === auth.uid)",
+          "currentTrick": {
+            ".validate": "newData.hasChildren()",
+            "$index": {
+              ".validate": "$index.matches(/^(0|[1-9]|[1-4][0-9]|5[0-5])$/) && (newData.hasChildren(['seat','card']))",
+              "seat": {
+                ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+              },
+              "card": {
+                ".validate": "(newData.child('rank').isString() && newData.child('rank').val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/) && newData.child('suit').isString() && newData.child('suit').val().matches(/^[SHCD]$/) && !newData.child('color').exists())",
+                "rank": {
+                  ".validate": "newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/)"
+                },
+                "suit": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[SHCD]$/)"
+                },
+                "color": {
+                  ".validate": "newData.isString() && newData.val().matches(/^(red|black)$/)"
+                },
+                "fromDiscardBy": {
+                  ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+                },
+                "mustLayThisTurn": {
+                  ".validate": "newData.isBoolean()"
+                },
+                "justPicked": {
+                  ".validate": "newData.isBoolean()"
+                },
+                "justPickedSeq": {
+                  ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 56"
+                },
+                "pickupNonce": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9]{1,80}$/)"
+                },
+                "$other": {
+                  ".validate": false
+                }
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          }
+        },
+        "remi": {
+          ".write": "auth != null && auth.token.firebase.sign_in_provider === 'password' && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && (root.child('rooms').child($roomCode).child('players').child(auth.uid).exists() && root.child('rooms').child($roomCode).child('players').child(auth.uid).child('uid').val() === auth.uid && root.child('rooms').child($roomCode).child('players').child(auth.uid).child('isBot').val() === false && root.child('rooms').child($roomCode).child('seats').child(root.child('rooms').child($roomCode).child('players').child(auth.uid).child('seat').val() + '').val() === auth.uid)",
+          "hands": {
+            ".validate": "newData.hasChildren()",
+            "$seat": {
+              ".validate": "$seat.matches(/^[0-5]$/) && newData.hasChildren()",
+              "$index": {
+                ".validate": "$index.matches(/^(0|[1-9]|[1-4][0-9]|5[0-5])$/) && ((newData.child('rank').isString() && newData.child('rank').val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/) && newData.child('suit').isString() && newData.child('suit').val().matches(/^[SHCD]$/) && !newData.child('color').exists()) || (newData.child('rank').val() === 'JOKER' && !newData.child('suit').exists() && newData.child('color').isString() && newData.child('color').val().matches(/^(red|black)$/)))",
+                "rank": {
+                  ".validate": "newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A|JOKER)$/)"
+                },
+                "suit": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[SHCD]$/)"
+                },
+                "color": {
+                  ".validate": "newData.isString() && newData.val().matches(/^(red|black)$/)"
+                },
+                "fromDiscardBy": {
+                  ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+                },
+                "mustLayThisTurn": {
+                  ".validate": "newData.isBoolean()"
+                },
+                "justPicked": {
+                  ".validate": "newData.isBoolean()"
+                },
+                "justPickedSeq": {
+                  ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 56"
+                },
+                "pickupNonce": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9]{1,80}$/)"
+                },
+                "$other": {
+                  ".validate": false
+                }
+              }
+            }
+          },
+          "deck": {
+            ".validate": "newData.hasChildren()",
+            "$index": {
+              ".validate": "$index.matches(/^(0|[1-9]|[1-4][0-9]|5[0-5])$/) && ((newData.child('rank').isString() && newData.child('rank').val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/) && newData.child('suit').isString() && newData.child('suit').val().matches(/^[SHCD]$/) && !newData.child('color').exists()) || (newData.child('rank').val() === 'JOKER' && !newData.child('suit').exists() && newData.child('color').isString() && newData.child('color').val().matches(/^(red|black)$/)))",
+              "rank": {
+                ".validate": "newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A|JOKER)$/)"
+              },
+              "suit": {
+                ".validate": "newData.isString() && newData.val().matches(/^[SHCD]$/)"
+              },
+              "color": {
+                ".validate": "newData.isString() && newData.val().matches(/^(red|black)$/)"
+              },
+              "fromDiscardBy": {
+                ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+              },
+              "mustLayThisTurn": {
+                ".validate": "newData.isBoolean()"
+              },
+              "justPicked": {
+                ".validate": "newData.isBoolean()"
+              },
+              "justPickedSeq": {
+                ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 56"
+              },
+              "pickupNonce": {
+                ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9]{1,80}$/)"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          },
+          "lastDrawnCard": {
+            ".validate": "(newData.child('rank').isString() && newData.child('rank').val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/) && newData.child('suit').isString() && newData.child('suit').val().matches(/^[SHCD]$/) && !newData.child('color').exists()) || (newData.child('rank').val() === 'JOKER' && !newData.child('suit').exists() && newData.child('color').isString() && newData.child('color').val().matches(/^(red|black)$/))",
+            "rank": {
+              ".validate": "newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A|JOKER)$/)"
+            },
+            "suit": {
+              ".validate": "newData.isString() && newData.val().matches(/^[SHCD]$/)"
+            },
+            "color": {
+              ".validate": "newData.isString() && newData.val().matches(/^(red|black)$/)"
+            },
+            "fromDiscardBy": {
+              ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+            },
+            "mustLayThisTurn": {
+              ".validate": "newData.isBoolean()"
+            },
+            "justPicked": {
+              ".validate": "newData.isBoolean()"
+            },
+            "justPickedSeq": {
+              ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 56"
+            },
+            "pickupNonce": {
+              ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9]{1,80}$/)"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "discard": {
+            ".validate": "newData.hasChildren()",
+            "$index": {
+              ".validate": "$index.matches(/^(0|[1-9]|[1-4][0-9]|5[0-5])$/) && (newData.hasChild('card') || ((newData.child('rank').isString() && newData.child('rank').val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/) && newData.child('suit').isString() && newData.child('suit').val().matches(/^[SHCD]$/) && !newData.child('color').exists()) || (newData.child('rank').val() === 'JOKER' && !newData.child('suit').exists() && newData.child('color').isString() && newData.child('color').val().matches(/^(red|black)$/))))",
+              "rank": {
+                ".validate": "newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A|JOKER)$/)"
+              },
+              "suit": {
+                ".validate": "newData.isString() && newData.val().matches(/^[SHCD]$/)"
+              },
+              "color": {
+                ".validate": "newData.isString() && newData.val().matches(/^(red|black)$/)"
+              },
+              "fromDiscardBy": {
+                ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+              },
+              "mustLayThisTurn": {
+                ".validate": "newData.isBoolean()"
+              },
+              "justPicked": {
+                ".validate": "newData.isBoolean()"
+              },
+              "justPickedSeq": {
+                ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 56"
+              },
+              "pickupNonce": {
+                ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9]{1,80}$/)"
+              },
+              "$other": {
+                ".validate": false
+              },
+              "card": {
+                ".validate": "(newData.child('rank').isString() && newData.child('rank').val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/) && newData.child('suit').isString() && newData.child('suit').val().matches(/^[SHCD]$/) && !newData.child('color').exists()) || (newData.child('rank').val() === 'JOKER' && !newData.child('suit').exists() && newData.child('color').isString() && newData.child('color').val().matches(/^(red|black)$/))",
+                "rank": {
+                  ".validate": "newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A|JOKER)$/)"
+                },
+                "suit": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[SHCD]$/)"
+                },
+                "color": {
+                  ".validate": "newData.isString() && newData.val().matches(/^(red|black)$/)"
+                },
+                "fromDiscardBy": {
+                  ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+                },
+                "mustLayThisTurn": {
+                  ".validate": "newData.isBoolean()"
+                },
+                "justPicked": {
+                  ".validate": "newData.isBoolean()"
+                },
+                "justPickedSeq": {
+                  ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 56"
+                },
+                "pickupNonce": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9]{1,80}$/)"
+                },
+                "$other": {
+                  ".validate": false
+                }
+              },
+              "by": {
+                ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+              }
+            }
+          },
+          "laidDown": {
+            "$seat": {
+              ".validate": "$seat.matches(/^[0-5]$/) && newData.hasChildren()",
+              "$index": {
+                ".validate": "$index.matches(/^(0|[1-9]|[1-4][0-9]|5[0-5])$/) && (newData.hasChildren(['kind','cards']))",
+                "kind": {
+                  ".validate": "newData.isString() && newData.val().matches(/^(dasar|pararel)$/)"
+                },
+                "cards": {
+                  ".validate": "newData.hasChildren()",
+                  "$index": {
+                    ".validate": "$index.matches(/^(0|[1-9]|[1-4][0-9]|5[0-5])$/) && ((newData.child('rank').isString() && newData.child('rank').val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/) && newData.child('suit').isString() && newData.child('suit').val().matches(/^[SHCD]$/) && !newData.child('color').exists()) || (newData.child('rank').val() === 'JOKER' && !newData.child('suit').exists() && newData.child('color').isString() && newData.child('color').val().matches(/^(red|black)$/)))",
+                    "rank": {
+                      ".validate": "newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A|JOKER)$/)"
+                    },
+                    "suit": {
+                      ".validate": "newData.isString() && newData.val().matches(/^[SHCD]$/)"
+                    },
+                    "color": {
+                      ".validate": "newData.isString() && newData.val().matches(/^(red|black)$/)"
+                    },
+                    "fromDiscardBy": {
+                      ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+                    },
+                    "mustLayThisTurn": {
+                      ".validate": "newData.isBoolean()"
+                    },
+                    "justPicked": {
+                      ".validate": "newData.isBoolean()"
+                    },
+                    "justPickedSeq": {
+                      ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 56"
+                    },
+                    "pickupNonce": {
+                      ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9]{1,80}$/)"
+                    },
+                    "$other": {
+                      ".validate": false
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "cangkul": {
+          ".write": "auth != null && auth.token.firebase.sign_in_provider === 'password' && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && (root.child('rooms').child($roomCode).child('players').child(auth.uid).exists() && root.child('rooms').child($roomCode).child('players').child(auth.uid).child('uid').val() === auth.uid && root.child('rooms').child($roomCode).child('players').child(auth.uid).child('isBot').val() === false && root.child('rooms').child($roomCode).child('seats').child(root.child('rooms').child($roomCode).child('players').child(auth.uid).child('seat').val() + '').val() === auth.uid)",
+          "hands": {
+            ".validate": "newData.hasChildren()",
+            "$seat": {
+              ".validate": "$seat.matches(/^[0-5]$/) && newData.hasChildren()",
+              "$index": {
+                ".validate": "$index.matches(/^(0|[1-9]|[1-4][0-9]|5[0-5])$/) && ((newData.child('rank').isString() && newData.child('rank').val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/) && newData.child('suit').isString() && newData.child('suit').val().matches(/^[SHCD]$/) && !newData.child('color').exists()) || (newData.child('rank').val() === 'JOKER' && !newData.child('suit').exists() && newData.child('color').isString() && newData.child('color').val().matches(/^(red|black)$/)))",
+                "rank": {
+                  ".validate": "newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A|JOKER)$/)"
+                },
+                "suit": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[SHCD]$/)"
+                },
+                "color": {
+                  ".validate": "newData.isString() && newData.val().matches(/^(red|black)$/)"
+                },
+                "fromDiscardBy": {
+                  ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+                },
+                "mustLayThisTurn": {
+                  ".validate": "newData.isBoolean()"
+                },
+                "justPicked": {
+                  ".validate": "newData.isBoolean()"
+                },
+                "justPickedSeq": {
+                  ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 56"
+                },
+                "pickupNonce": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9]{1,80}$/)"
+                },
+                "$other": {
+                  ".validate": false
+                }
+              }
+            }
+          },
+          "drawPile": {
+            ".validate": "newData.hasChildren()",
+            "$index": {
+              ".validate": "$index.matches(/^(0|[1-9]|[1-4][0-9]|5[0-5])$/) && ((newData.child('rank').isString() && newData.child('rank').val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/) && newData.child('suit').isString() && newData.child('suit').val().matches(/^[SHCD]$/) && !newData.child('color').exists()) || (newData.child('rank').val() === 'JOKER' && !newData.child('suit').exists() && newData.child('color').isString() && newData.child('color').val().matches(/^(red|black)$/)))",
+              "rank": {
+                ".validate": "newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A|JOKER)$/)"
+              },
+              "suit": {
+                ".validate": "newData.isString() && newData.val().matches(/^[SHCD]$/)"
+              },
+              "color": {
+                ".validate": "newData.isString() && newData.val().matches(/^(red|black)$/)"
+              },
+              "fromDiscardBy": {
+                ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+              },
+              "mustLayThisTurn": {
+                ".validate": "newData.isBoolean()"
+              },
+              "justPicked": {
+                ".validate": "newData.isBoolean()"
+              },
+              "justPickedSeq": {
+                ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 56"
+              },
+              "pickupNonce": {
+                ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9]{1,80}$/)"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          },
+          "lastDrawnCard": {
+            ".validate": "(newData.child('rank').isString() && newData.child('rank').val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/) && newData.child('suit').isString() && newData.child('suit').val().matches(/^[SHCD]$/) && !newData.child('color').exists()) || (newData.child('rank').val() === 'JOKER' && !newData.child('suit').exists() && newData.child('color').isString() && newData.child('color').val().matches(/^(red|black)$/))",
+            "rank": {
+              ".validate": "newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A|JOKER)$/)"
+            },
+            "suit": {
+              ".validate": "newData.isString() && newData.val().matches(/^[SHCD]$/)"
+            },
+            "color": {
+              ".validate": "newData.isString() && newData.val().matches(/^(red|black)$/)"
+            },
+            "fromDiscardBy": {
+              ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+            },
+            "mustLayThisTurn": {
+              ".validate": "newData.isBoolean()"
+            },
+            "justPicked": {
+              ".validate": "newData.isBoolean()"
+            },
+            "justPickedSeq": {
+              ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 56"
+            },
+            "pickupNonce": {
+              ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9]{1,80}$/)"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "currentTrick": {
+            ".validate": "newData.hasChildren()",
+            "$index": {
+              ".validate": "$index.matches(/^(0|[1-9]|[1-4][0-9]|5[0-5])$/) && (newData.hasChildren(['seat','card']))",
+              "seat": {
+                ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+              },
+              "card": {
+                ".validate": "(newData.child('rank').isString() && newData.child('rank').val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/) && newData.child('suit').isString() && newData.child('suit').val().matches(/^[SHCD]$/) && !newData.child('color').exists()) || (newData.child('rank').val() === 'JOKER' && !newData.child('suit').exists() && newData.child('color').isString() && newData.child('color').val().matches(/^(red|black)$/))",
+                "rank": {
+                  ".validate": "newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A|JOKER)$/)"
+                },
+                "suit": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[SHCD]$/)"
+                },
+                "color": {
+                  ".validate": "newData.isString() && newData.val().matches(/^(red|black)$/)"
+                },
+                "fromDiscardBy": {
+                  ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+                },
+                "mustLayThisTurn": {
+                  ".validate": "newData.isBoolean()"
+                },
+                "justPicked": {
+                  ".validate": "newData.isBoolean()"
+                },
+                "justPickedSeq": {
+                  ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 56"
+                },
+                "pickupNonce": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9]{1,80}$/)"
+                },
+                "$other": {
+                  ".validate": false
+                }
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          }
+        },
+        "tebak": {
+          ".write": "auth != null && auth.token.firebase.sign_in_provider === 'password' && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && (root.child('rooms').child($roomCode).child('players').child(auth.uid).exists() && root.child('rooms').child($roomCode).child('players').child(auth.uid).child('uid').val() === auth.uid && root.child('rooms').child($roomCode).child('players').child(auth.uid).child('isBot').val() === false && root.child('rooms').child($roomCode).child('seats').child(root.child('rooms').child($roomCode).child('players').child(auth.uid).child('seat').val() + '').val() === auth.uid)",
+          "hands": {
+            ".validate": "newData.hasChildren()",
+            "$seat": {
+              ".validate": "$seat.matches(/^[0-5]$/) && newData.hasChildren()",
+              "$index": {
+                ".validate": "$index.matches(/^(0|[1-9]|[1-4][0-9]|5[0-5])$/) && ((newData.child('rank').isString() && newData.child('rank').val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/) && newData.child('suit').isString() && newData.child('suit').val().matches(/^[SHCD]$/) && !newData.child('color').exists()))",
+                "rank": {
+                  ".validate": "newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/)"
+                },
+                "suit": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[SHCD]$/)"
+                },
+                "color": {
+                  ".validate": "newData.isString() && newData.val().matches(/^(red|black)$/)"
+                },
+                "fromDiscardBy": {
+                  ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+                },
+                "mustLayThisTurn": {
+                  ".validate": "newData.isBoolean()"
+                },
+                "justPicked": {
+                  ".validate": "newData.isBoolean()"
+                },
+                "justPickedSeq": {
+                  ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 56"
+                },
+                "pickupNonce": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9]{1,80}$/)"
+                },
+                "$other": {
+                  ".validate": false
+                }
+              }
+            }
+          },
+          "deck": {
+            ".validate": "newData.hasChildren()",
+            "$index": {
+              ".validate": "$index.matches(/^(0|[1-9]|[1-4][0-9]|5[0-5])$/) && ((newData.child('rank').isString() && newData.child('rank').val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/) && newData.child('suit').isString() && newData.child('suit').val().matches(/^[SHCD]$/) && !newData.child('color').exists()))",
+              "rank": {
+                ".validate": "newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/)"
+              },
+              "suit": {
+                ".validate": "newData.isString() && newData.val().matches(/^[SHCD]$/)"
+              },
+              "color": {
+                ".validate": "newData.isString() && newData.val().matches(/^(red|black)$/)"
+              },
+              "fromDiscardBy": {
+                ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+              },
+              "mustLayThisTurn": {
+                ".validate": "newData.isBoolean()"
+              },
+              "justPicked": {
+                ".validate": "newData.isBoolean()"
+              },
+              "justPickedSeq": {
+                ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 56"
+              },
+              "pickupNonce": {
+                ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9]{1,80}$/)"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          },
+          "lastAction": {
+            ".validate": "newData.hasChildren(['by','rank','at','type'])",
+            "rank": {
+              ".validate": "newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/)"
+            },
+            "by": {
+              ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+            },
+            "target": {
+              ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+            },
+            "at": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "type": {
+              ".validate": "newData.isString() && newData.val().matches(/^(guess_hit|guess_miss|four_of_kind)$/)"
+            },
+            "hit": {
+              ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 4"
+            },
+            "count": {
+              ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 4"
+            },
+            "four": {
+              ".validate": "newData.hasChildren()",
+              "$index": {
+                ".validate": "$index.matches(/^(0|[1-9]|[1-4][0-9]|5[0-5])$/) && (newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/))"
+              }
+            },
+            "noDraw": {
+              ".validate": "newData.isBoolean()"
+            },
+            "drew": {
+              ".validate": "newData.isBoolean()"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "log": {
+            ".validate": "newData.hasChildren()",
+            "$index": {
+              ".validate": "$index.matches(/^(0|[1-9]|[1-4][0-9]|5[0-5])$/) && (newData.hasChildren(['by','rank','at','hit']))",
+              "rank": {
+                ".validate": "newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/)"
+              },
+              "by": {
+                ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+              },
+              "target": {
+                ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+              },
+              "at": {
+                ".validate": "newData.isNumber() && newData.val() >= 0"
+              },
+              "type": {
+                ".validate": "newData.isString() && newData.val().matches(/^(guess_hit|guess_miss|four_of_kind)$/)"
+              },
+              "hit": {
+                ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 4"
+              },
+              "count": {
+                ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 4"
+              },
+              "four": {
+                ".validate": "newData.hasChildren()",
+                "$index": {
+                  ".validate": "$index.matches(/^(0|[1-9]|[1-4][0-9]|5[0-5])$/) && (newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/))"
+                }
+              },
+              "noDraw": {
+                ".validate": "newData.isBoolean()"
+              },
+              "drew": {
+                ".validate": "newData.isBoolean()"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          },
+          "jadi": {
+            "$seat": {
+              ".validate": "$seat.matches(/^[0-5]$/) && newData.hasChildren()",
+              "$index": {
+                ".validate": "$index.matches(/^(0|[1-9]|[1-4][0-9]|5[0-5])$/) && ((newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/)) || newData.hasChildren(['rank']))",
+                "rank": {
+                  ".validate": "newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/)"
+                },
+                "cards": {
+                  ".validate": "newData.hasChildren()",
+                  "$index": {
+                    ".validate": "$index.matches(/^(0|[1-9]|[1-4][0-9]|5[0-5])$/) && ((newData.child('rank').isString() && newData.child('rank').val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/) && newData.child('suit').isString() && newData.child('suit').val().matches(/^[SHCD]$/) && !newData.child('color').exists()))",
+                    "rank": {
+                      ".validate": "newData.isString() && newData.val().matches(/^(2|3|4|5|6|7|8|9|10|J|Q|K|A)$/)"
+                    },
+                    "suit": {
+                      ".validate": "newData.isString() && newData.val().matches(/^[SHCD]$/)"
+                    },
+                    "color": {
+                      ".validate": "newData.isString() && newData.val().matches(/^(red|black)$/)"
+                    },
+                    "fromDiscardBy": {
+                      ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 6"
+                    },
+                    "mustLayThisTurn": {
+                      ".validate": "newData.isBoolean()"
+                    },
+                    "justPicked": {
+                      ".validate": "newData.isBoolean()"
+                    },
+                    "justPickedSeq": {
+                      ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() < 56"
+                    },
+                    "pickupNonce": {
+                      ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9]{1,80}$/)"
+                    },
+                    "$other": {
+                      ".validate": false
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },

@@ -22,6 +22,8 @@
 </script>
 
 <!-- Firebase SDK (modular v10) -->
+<script src="/vendor/dompurify/purify.min.js?v=3.4.17"></script>
+<script src="/game-display.js?v=1"></script>
 <script src="/room-membership.js?v=2"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -6751,9 +6753,9 @@ const RemiTurnTimer = (function () {
     box.classList.toggle('danger', danger);
     box.classList.toggle('is-mine', !!ctx.isMine);
     const secs = Math.ceil(remain / 1000);
-    label.innerHTML = ctx.isMine
+    setSafeHTML(label, ctx.isMine
       ? `⏳ Giliran Anda · buang dalam <b>${secs}s</b>`
-      : `⏳ Giliran ${escapeHtml(ctx.name)} · <b>${secs}s</b>`;
+      : `⏳ Giliran ${escapeHtml(ctx.name)} · <b>${secs}s</b>`);
   }
   function tick() {
     if (!ctx) { hide(); return; }
@@ -7617,20 +7619,20 @@ function doLogout() {
 async function loadAdminUserList() {
   const el = document.getElementById('adminUserList');
   if (!el) return;
-  el.innerHTML = '<div style="color:rgba(244,234,213,0.5);font-family:\'JetBrains Mono\',monospace;font-size:11px;padding:8px;">Memuat data...</div>';
+  setSafeHTML(el, '<div style="color:rgba(244,234,213,0.5);font-family:\'JetBrains Mono\',monospace;font-size:11px;padding:8px;">Memuat data...</div>');
   try {
     const snap = await fb.get(fb.ref(fb.db, 'accounts'));
-    if (!snap.exists()) { el.innerHTML = '<div style="color:rgba(244,234,213,0.5);font-size:11px;padding:8px;">Belum ada pengguna terdaftar.</div>'; return; }
+    if (!snap.exists()) { setSafeHTML(el, '<div style="color:rgba(244,234,213,0.5);font-size:11px;padding:8px;">Belum ada pengguna terdaftar.</div>'); return; }
     const accounts = snap.val();
     const rows = Object.values(accounts).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-    el.innerHTML = `<div class="admin-header-row"><span>NAMA</span><span>USERNAME</span><span>PASSWORD</span></div>` +
+    setSafeHTML(el, `<div class="admin-header-row"><span>NAMA</span><span>USERNAME</span><span>PASSWORD</span></div>` +
       rows.map(acc => `
         <div class="admin-user-row">
           <div><div class="lbl">Nama</div><b>${escapeHtml(acc.name || '—')}</b></div>
           <div><div class="lbl">Username</div><b>${escapeHtml(acc.username || '—')}</b></div>
           <div><div class="lbl">Password</div><b>${escapeHtml(acc.password || '—')}</b></div>
-        </div>`).join('');
-  } catch (e) { el.innerHTML = `<div style="color:#eb5757;font-size:11px;padding:8px;">Error: ${e.message}</div>`; }
+        </div>`).join(''));
+  } catch (e) { setSafeHTML(el, `<div style="color:#eb5757;font-size:11px;padding:8px;">Error: ${e.message}</div>`); }
 }
 
 // =============== Admin: list semua room aktif ===============
@@ -7678,21 +7680,21 @@ async function loadAdminRoomList() {
   if (!el) return;
   if (!el._initialized) {
     el._initialized = true;
-    el.innerHTML = '<div class="admin-room-empty">Memuat room...</div>';
+    setSafeHTML(el, '<div class="admin-room-empty">Memuat room...</div>');
   }
   try {
     const snap = await fb.get(fb.ref(fb.db, 'rooms'));
     if (!snap.exists()) {
-      el.innerHTML = '<div class="admin-room-empty">Tidak ada room aktif</div>';
+      setSafeHTML(el, '<div class="admin-room-empty">Tidak ada room aktif</div>');
       return;
     }
     const rooms = snap.val();
     const list = Object.values(rooms).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     if (list.length === 0) {
-      el.innerHTML = '<div class="admin-room-empty">Tidak ada room aktif</div>';
+      setSafeHTML(el, '<div class="admin-room-empty">Tidak ada room aktif</div>');
       return;
     }
-    el.innerHTML = list.map(room => {
+    setSafeHTML(el, list.map(room => {
       const game = room.game || 'truf';
       const phase = room.phase || 'lobby';
       const players = Object.values(room.players || {});
@@ -7733,7 +7735,7 @@ async function loadAdminRoomList() {
           <button class="btn danger" data-admin-delete="${escapeHtml(room.code)}">🗑 Hapus</button>
         </div>
       </div>`;
-    }).join('');
+    }).join(''));
     // Wire actions (event delegation)
     el.querySelectorAll('[data-admin-spectate]').forEach(b => {
       b.onclick = () => adminSpectateRoom(b.dataset.adminSpectate);
@@ -7743,7 +7745,7 @@ async function loadAdminRoomList() {
     });
   } catch (e) {
     console.error('loadAdminRoomList', e);
-    el.innerHTML = `<div style="color:#eb5757;font-size:11px;padding:8px;">Error: ${e.message}</div>`;
+    setSafeHTML(el, `<div style="color:#eb5757;font-size:11px;padding:8px;">Error: ${e.message}</div>`);
   }
 }
 
@@ -7935,12 +7937,12 @@ async function openRankModal(game) {
   const title = document.getElementById('rankModalTitle');
   const GAME_LABEL = { truf: 'TRUF', cangkul: 'CANGKUL', remi: 'REMI', tebak: 'TEBAK KARTU' };
   if (title) title.textContent = `🏆 Peringkat ${GAME_LABEL[game] || game.toUpperCase()}`;
-  if (body) body.innerHTML = '<div style="text-align:center;color:rgba(244,234,213,0.5);font-family:var(--font-sans);font-size:13px;padding:24px;">Memuat...</div>';
+  if (body) setSafeHTML(body, '<div style="text-align:center;color:rgba(244,234,213,0.5);font-family:var(--font-sans);font-size:13px;padding:24px;">Memuat...</div>');
   if (modal) modal.classList.add('show');
   try {
     const snap = await fb.get(fb.ref(fb.db, `leaderboards/${game}`));
     if (!snap.exists()) {
-      body.innerHTML = '<div style="text-align:center;color:rgba(244,234,213,0.55);font-family:var(--font-sans);font-size:13px;padding:24px;line-height:1.5;">Belum ada data peringkat</div>';
+      setSafeHTML(body, '<div style="text-align:center;color:rgba(244,234,213,0.55);font-family:var(--font-sans);font-size:13px;padding:24px;line-height:1.5;">Belum ada data peringkat</div>');
       return;
     }
     const data = snap.val();
@@ -7958,11 +7960,10 @@ async function openRankModal(game) {
     }).filter(u => u.matches > 0)
       .sort(rankSort);
     if (rows.length === 0) {
-      body.innerHTML = '<div style="text-align:center;color:rgba(244,234,213,0.55);font-family:var(--font-sans);font-size:13px;padding:24px;">Belum ada data peringkat</div>';
+      setSafeHTML(body, '<div style="text-align:center;color:rgba(244,234,213,0.55);font-family:var(--font-sans);font-size:13px;padding:24px;">Belum ada data peringkat</div>');
       return;
     }
-    body.innerHTML =
-      `<div class="rank-row rank-head">
+    setSafeHTML(body, `<div class="rank-row rank-head">
         <span>#</span><span>NAMA</span><span>MATCH</span><span>POIN</span><span>SKOR</span>
       </div>` +
       rows.map((r, idx) => {
@@ -7975,9 +7976,9 @@ async function openRankModal(game) {
           <span>${r.points}</span>
           <span class="rank-score">${r.score.toFixed(2)}</span>
         </div>`;
-      }).join('');
+      }).join(''));
   } catch (e) {
-    body.innerHTML = `<div style="color:#eb5757;font-size:12px;padding:20px;">Error: ${e.message}</div>`;
+    setSafeHTML(body, `<div style="color:#eb5757;font-size:12px;padding:20px;">Error: ${e.message}</div>`);
   }
 }
 
@@ -7992,17 +7993,17 @@ function openScoreEditModal() {
   const totals = room.totals || {};
   const players = Object.values(room.players).sort((a, b) => a.seat - b.seat);
   const body = document.getElementById('scoreEditBody');
-  body.innerHTML = '';
+  setSafeHTML(body, '');
   for (const p of players) {
     const cur = (totals[p.seat] != null ? totals[p.seat] : (totals[String(p.seat)] || 0));
     const row = document.createElement('div');
     row.className = 'score-edit-row';
-    row.innerHTML = `
+    setSafeHTML(row, `
       <span class="se-name">${escapeHtml(p.nickname)}</span>
       <span class="se-old">${cur}</span>
       <span class="se-arrow">→</span>
       <input type="number" data-seat="${p.seat}" value="${cur}">
-    `;
+    `);
     const input = row.querySelector('input');
     input.addEventListener('input', () => {
       row.classList.toggle('changed', parseInt(input.value) !== cur);
@@ -8094,25 +8095,25 @@ function detectScoreEditProposal(room) {
   if (fromEl) fromEl.textContent = `${escapeHtml(prop.byName)} mengajukan perubahan skor:`;
   const bodyEl = document.getElementById('scoreApprovalBody');
   const totals = room.totals || {};
-  bodyEl.innerHTML = '';
+  setSafeHTML(bodyEl, '');
   for (const p of players.sort((a, b) => a.seat - b.seat)) {
     const oldVal = (totals[p.seat] != null ? totals[p.seat] : (totals[String(p.seat)] || 0));
     const newVal = (prop.proposed[p.seat] != null ? prop.proposed[p.seat] : (prop.proposed[String(p.seat)] || oldVal));
     const changed = newVal !== oldVal;
     const row = document.createElement('div');
     row.className = 'score-approval-row' + (changed ? ' sa-changed' : '');
-    row.innerHTML = `
+    setSafeHTML(row, `
       <span class="sa-name">${escapeHtml(p.nickname)}</span>
       <span class="sa-old">${oldVal}</span>
       <span style="color:rgba(244,234,213,0.4);">→</span>
       <span class="sa-new">${newVal}${changed ? ' ✏️' : ''}</span>
-    `;
+    `);
     bodyEl.appendChild(row);
   }
   // Status: who approved so far
   const statusEl = document.getElementById('scoreApprovalStatus');
   const approved = humans.filter(p => approvals[p.seat] || approvals[String(p.seat)]);
-  statusEl.innerHTML = `Setuju: ${approved.length}/${humans.length} · menunggu ${humans.length - approved.length} pemain`;
+  setSafeHTML(statusEl, `Setuju: ${approved.length}/${humans.length} · menunggu ${humans.length - approved.length} pemain`);
   // Button states
   const approveBtn = document.getElementById('scoreApproveBtn');
   const rejectBtn = document.getElementById('scoreRejectBtn');
@@ -8277,7 +8278,7 @@ function setupAudioControls() {
     const refresh = () => {
       const m = Sound.isMuted();
       btn.classList.toggle('is-muted', m);
-      btn.innerHTML = m ? '&#128263;' : '&#128266;';
+      setSafeHTML(btn, m ? '&#128263;' : '&#128266;');
     };
     refresh();
     btn.onclick = () => { Sound.setMuted(!Sound.isMuted()); refresh(); };
@@ -8548,7 +8549,7 @@ function startCountdownTicker() {
       if (!player) continue;
       if (player.disconnectedAt && !player.disconnected) {
         const roleEl = document.getElementById(`seat-role-${relativePosFor(absSeat)}`);
-        if (roleEl) roleEl.innerHTML = buildRoleHtml(player, absSeat);
+        if (roleEl) setSafeHTML(roleEl, buildRoleHtml(player, absSeat));
       }
     }
   }, 1000);
@@ -8565,7 +8566,7 @@ let gameToastTimer = null;
 function showGameToast(html, type, durationMs) {
   const el = document.getElementById('gameToast');
   if (!el) return;
-  el.innerHTML = html;
+  setSafeHTML(el, html);
   el.className = 'game-toast show' + (type ? ' toast-' + type : '');
   if (gameToastTimer) clearTimeout(gameToastTimer);
   gameToastTimer = setTimeout(() => {
@@ -8673,7 +8674,7 @@ function maybeAppendLog(room) {
       const bid = getBidForSeat(bidding.bids, s);
       if (!bid) continue;
       const tl = bid.noTrump ? 'NT' : SUIT_SYMBOLS[bid.suit];
-      const cards = (bid.cards || []).map(c => c.rank + SUIT_SYMBOLS[c.suit]).join(' + ');
+      const cards = (bid.cards || []).map(c => escapeHtml(c.rank) + (SUIT_SYMBOLS[c.suit] || '?')).join(' + ');
       add(`${nameOfSeat(room, s)} bid <b>${bid.point} ${tl}</b> (${cards})`);
     }
   }
@@ -8700,7 +8701,7 @@ function maybeAppendLog(room) {
     if (!newSession && curTrick.length > prevTrick.length) {
       for (let i = prevTrick.length; i < curTrick.length; i++) {
         const pc = curTrick[i];
-        add(`${nameOfSeat(room, pc.seat)} main ${pc.card.rank}${SUIT_SYMBOLS[pc.card.suit]}`);
+        add(`${nameOfSeat(room, pc.seat)} main ${escapeHtml(pc.card.rank)}${SUIT_SYMBOLS[pc.card.suit] || '?'}`);
       }
     }
     if (!newSession && prevTrick.length === MAX_PLAYERS && curTrick.length === 0
@@ -8813,12 +8814,12 @@ function renderChat(room) {
     Sound.chatPop(); // pop on any new message
     updateChatUnreadBadge(newCount);
   }
-  liveEl.innerHTML = last5.map((m, idx) => {
+  setSafeHTML(liveEl, last5.map((m, idx) => {
     const mine = m.uid === myUid;
     const isNewest = grew && idx === last5.length - 1;
     return `<div class="chat-live-msg ${mine ? 'mine' : ''} ${isNewest ? 'msg-new' : ''}">` +
       `<span class="who">${escapeHtml(m.name || '?')}:</span> ${escapeHtml(m.text || '')}</div>`;
-  }).join('');
+  }).join(''));
   chatLastCount = entries.length;
   // Keep the full modal fresh if it's open
   const modal = document.getElementById('chatModal');
@@ -8830,14 +8831,14 @@ function renderFullChat(room) {
   if (!el) return;
   const entries = chatEntries(room);
   if (entries.length === 0) {
-    el.innerHTML = '<div class="chat-empty">Belum ada pesan</div>';
+    setSafeHTML(el, '<div class="chat-empty">Belum ada pesan</div>');
   } else {
-    el.innerHTML = entries.map(m => {
+    setSafeHTML(el, entries.map(m => {
       const mine = m.uid === myUid;
       return `<div class="chat-msg ${mine ? 'mine' : ''}">` +
         `<span class="who">${escapeHtml(m.name || '?')}:</span> ` +
         `<span class="txt">${escapeHtml(m.text || '')}</span></div>`;
-    }).join('');
+    }).join(''));
   }
   el.scrollTop = el.scrollHeight;
 }
@@ -8883,7 +8884,7 @@ function renderLeaderboard(room) {
   }
   rows.sort((a, b) => b.total - a.total);
   const lbRows = document.getElementById('lbRows');
-  lbRows.innerHTML = rows.map((r, idx) => {
+  setSafeHTML(lbRows, rows.map((r, idx) => {
     let icon = '', cls = '';
     if (idx === 0) { icon = '\u{1F451}'; cls = 'lb-first'; }            // crown
     else if (idx === rows.length - 1) { icon = '\u{1F480}'; cls = 'lb-last'; } // skull
@@ -8891,7 +8892,7 @@ function renderLeaderboard(room) {
       `<span class="lb-rank">${icon}</span>` +
       `<span class="lb-name ${r.isMe ? 'me' : ''}">${escapeHtml(r.name)}</span>` +
       `<span class="lb-score">${r.total}</span></div>`;
-  }).join('');
+  }).join(''));
 }
 
 // ===== Klasemen sementara Remi (popup proper, gaya Tebak) =====
@@ -8939,7 +8940,7 @@ function renderRemiStandings(room) {
   };
   const body = document.getElementById('remiStandingsBody');
   if (!body) return;
-  body.innerHTML = sorted.map(p => {
+  setSafeHTML(body, sorted.map(p => {
     const total = get(totals, p.seat);
     const rank = ranks[p.seat];
     const isMe = (p.seat === mySeat && !isSpectator);
@@ -8965,7 +8966,7 @@ function renderRemiStandings(room) {
       </div>
       <div class="remi-stand-pts ${ptsCls}">${ptsTxt}</div>
     </div>`;
-  }).join('');
+  }).join(''));
 }
 
 function openLogViewer() {
@@ -8976,11 +8977,11 @@ function openLogViewer() {
   const raw = (_lastRoom && _lastRoom.log) || [];
   const entries = Array.isArray(raw) ? raw : Object.values(raw);
   if (entries.length === 0) {
-    content.innerHTML = '<div class="log-empty">Belum ada catatan.</div>';
+    setSafeHTML(content, '<div class="log-empty">Belum ada catatan.</div>');
   } else {
-    content.innerHTML = entries.map(e =>
+    setSafeHTML(content, entries.map(e =>
       `<div class="log-entry ${e.type === 'session' ? 'log-session' : ''}">${e.t}</div>`
-    ).join('');
+    ).join(''));
   }
   if (sub) sub.textContent = `${entries.length} catatan`;
   modal.classList.add('show');
@@ -9842,7 +9843,7 @@ function enterRoomView(code) {
 
 function renderRoom(room) {
   const seatsContainer = document.getElementById('seatsContainer');
-  seatsContainer.innerHTML = '';
+  setSafeHTML(seatsContainer, '');
 
   const players = room.players || {};
   const seatPlayers = {};
@@ -9914,7 +9915,7 @@ function renderRoom(room) {
     if (isCangkul && isHost && p && p.isBot) {
       inner += `<button class="remove-bot-btn" title="Hapus bot" data-uid="${p.uid}">×</button>`;
     }
-    seatEl.innerHTML = inner;
+    setSafeHTML(seatEl, inner);
     seatsContainer.appendChild(seatEl);
   }
 
@@ -10066,7 +10067,7 @@ async function loadSpectateRoomList() {
   if (!el) return;
   if (!el._initialized) {
     el._initialized = true;
-    el.innerHTML = '<div class="admin-room-empty">Memuat room...</div>';
+    setSafeHTML(el, '<div class="admin-room-empty">Memuat room...</div>');
   }
   try {
     const snap = await fb.get(fb.ref(fb.db, 'rooms'));
@@ -10079,10 +10080,10 @@ async function loadSpectateRoomList() {
     }).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
     if (list.length === 0) {
-      el.innerHTML = '<div class="admin-room-empty">Tidak ada pertandingan Remi yang sedang berlangsung saat ini.</div>';
+      setSafeHTML(el, '<div class="admin-room-empty">Tidak ada pertandingan Remi yang sedang berlangsung saat ini.</div>');
       return;
     }
-    el.innerHTML = list.map(room => {
+    setSafeHTML(el, list.map(room => {
       const phase = room.phase || 'lobby';
       const players = Object.values(room.players || {});
       const maxP = room.maxPlayers || 4;
@@ -10114,13 +10115,13 @@ async function loadSpectateRoomList() {
           <button class="btn" data-spectate-code="${escapeHtml(room.code)}" style="border-color:rgba(111,207,151,0.6);color:#6fcf97;">👁 Tonton</button>
         </div>
       </div>`;
-    }).join('');
+    }).join(''));
     el.querySelectorAll('[data-spectate-code]').forEach(b => {
       b.onclick = () => spectateFromList(b.dataset.spectateCode);
     });
   } catch (e) {
     console.error('loadSpectateRoomList', e);
-    el.innerHTML = `<div style="color:#eb5757;font-size:12px;padding:10px;">Error: ${e.message}</div>`;
+    setSafeHTML(el, `<div style="color:#eb5757;font-size:12px;padding:10px;">Error: ${e.message}</div>`);
   }
 }
 
@@ -10222,7 +10223,7 @@ function onSpectatorRoomUpdate(room) {
     const c = room.remi || {};
     const seat0HandRaw = (c.hands && (c.hands[0] || c.hands['0'])) || [];
     const seat0Hand = Array.isArray(seat0HandRaw) ? seat0HandRaw : Object.values(seat0HandRaw);
-    handEl.innerHTML = '';
+    setSafeHTML(handEl, '');
     for (let i = 0; i < seat0Hand.length; i++) {
       const el = document.createElement('div');
       el.className = 'card card-back';
@@ -11047,7 +11048,7 @@ function renderRemiSmallCardEl(card) {
 function renderRemiPlayerPanel(el, player, handCount, isTurn, score, rank, totalPlayers, revealHand, babuLabel, disconnected) {
   if (!el) return;
   el.classList.toggle('is-turn', isTurn);
-  if (!player) { el.innerHTML = '<div class="player-name">·</div>'; return; }
+  if (!player) { setSafeHTML(el, '<div class="player-name">·</div>'); return; }
   let cardsHtml = '';
   if (revealHand && revealHand.length) {
     // Round-end: show this player's actual cards face-up so everyone can
@@ -11075,7 +11076,7 @@ function renderRemiPlayerPanel(el, player, handCount, isTurn, score, rank, total
     : (inVoice ? ' <span class="remi-speak-icon" style="color:rgba(244,234,213,0.4);font-size:12px;">🎙</span>'
                : ' <span class="remi-speak-icon"></span>');
   const babelHtml = babuLabel ? `<div class="babu-title">${babuLabel}</div>` : '';
-  el.innerHTML = `
+  setSafeHTML(el, `
     ${babelHtml}
     <div class="player-name">${escapeHtml(player.nickname)}${speakerIcon}</div>
     <div class="player-meta">Kursi ${player.seat + 1}${statusTag}</div>
@@ -11085,7 +11086,7 @@ function renderRemiPlayerPanel(el, player, handCount, isTurn, score, rank, total
       <span class="${scoreCls}"><span class="lbl">Skor</span><b>${scoreText}</b></span>
       <span class="${rankCls}"><span class="lbl">Rank</span><b>${rankText}</b></span>
     </div>
-  `;
+  `);
 }
 
 // Coalesce rapid-fire room updates into a single render. Stores the latest
@@ -11231,10 +11232,9 @@ function renderRemiGameView(room) {
       const sAbadi = !!((c.babuAbadi || {})[mySeat] || (c.babuAbadi || {})[String(mySeat)]);
       const sStreak = ((c.babuStreak || {})[mySeat] != null ? (c.babuStreak || {})[mySeat] : ((c.babuStreak || {})[String(mySeat)] || 0));
       const selfBabu = sAbadi ? '👑💀 BABU ABADI' : (sStreak >= 4 ? '💀 BABU SEJATI' : '');
-      selfEl.innerHTML =
-        (selfBabu ? `<span class="babu-title" style="margin:0 8px 0 0;">${selfBabu}</span>` : '') +
+      setSafeHTML(selfEl, (selfBabu ? `<span class="babu-title" style="margin:0 8px 0 0;">${selfBabu}</span>` : '') +
         `<span><span class="si-lbl">Skor</span><span class="si-val ${myScore < 0 ? 'neg' : ''}">${myScore > 0 ? '+' : ''}${myScore}</span></span>` +
-        `<span><span class="si-lbl">Rank</span><span class="si-val">${myRank != null ? myRank : '—'}</span></span>`;
+        `<span><span class="si-lbl">Rank</span><span class="si-val">${myRank != null ? myRank : '—'}</span></span>`);
     }
   }
   // At round-end (remi_end), reveal every player's hand face-up for review.
@@ -11267,7 +11267,7 @@ function renderRemiGameView(room) {
   // Render last 5 discards stacked horizontally
   const discardStack = document.getElementById('remiDiscardStack');
   if (discardStack) {
-    discardStack.innerHTML = '';
+    setSafeHTML(discardStack, '');
     const last5 = discard.slice(-4); // show the 4 most recent (max takeable)
     last5.forEach(entry => {
       // entry can be either a card (legacy) or { card, by } (new format)
@@ -11318,9 +11318,9 @@ function renderRemiGameView(room) {
         ? ` — babu ${shufCurIdx + 1} dari ${shufSeats.length}`
         : '';
       if (iAmShuffler) {
-        banner.innerHTML = `🃏 wahai babu <b>${escapeHtml(shufName)}</b> ayo selesaikan kocokan kartunya! <b>${shufProgress}</b>${shufQueue}`;
+        setSafeHTML(banner, `🃏 wahai babu <b>${escapeHtml(shufName)}</b> ayo selesaikan kocokan kartunya! <b>${shufProgress}</b>${shufQueue}`);
       } else {
-        banner.innerHTML = `⏳ babu <b>${escapeHtml(shufName)}</b> belum selesai mengocok kartu ${shufProgress}${shufQueue}, mohon bersabar!`;
+        setSafeHTML(banner, `⏳ babu <b>${escapeHtml(shufName)}</b> belum selesai mengocok kartu ${shufProgress}${shufQueue}, mohon bersabar!`);
       }
     }
     else if (room.phase === 'remi_end') banner.textContent = 'Ronde selesai';
@@ -11339,7 +11339,7 @@ function renderRemiGameView(room) {
   // My hand — selection mode (click cards to toggle, then explicit action button)
   const handEl = document.getElementById('remiMyHand');
   if (!handEl) return;
-  handEl.innerHTML = '';
+  setSafeHTML(handEl, '');
   const myHandRaw = (c.hands && (c.hands[mySeat] || c.hands[String(mySeat)])) || [];
   const myHand = Array.isArray(myHandRaw) ? myHandRaw : Object.values(myHandRaw);
   // Cull stale selection indices that no longer exist
@@ -11392,7 +11392,7 @@ function renderRemiGameView(room) {
 
   // Actions panel — context-sensitive
   const actionsEl = document.getElementById('remiActions');
-  actionsEl.innerHTML = '';
+  setSafeHTML(actionsEl, '');
   if (isMyTurn && !shufActive) {
     const selectedCards = Array.from(remiSelectedIndices).map(i => myHand[i]).filter(Boolean);
     if (selectedCards.length >= 3) {
@@ -11651,7 +11651,7 @@ function renderRemiMeja(room, playersBySeat) {
       const cardsRaw = combo.cards || [];
       const cardsArr = Array.isArray(cardsRaw) ? cardsRaw : Object.values(cardsRaw);
       const inner = cardsArr.map(card => renderRemiSmallCardEl(card).outerHTML).join('');
-      return `<div class="combo-row" data-kind="${combo.kind || 'dasar'}">${inner}</div>`;
+      return `<div class="combo-row" data-kind="${combo.kind === 'pararel' ? 'pararel' : 'dasar'}">${inner}</div>`;
     }).join('');
     sections.push(`
       <div class="player-combos">
@@ -11661,7 +11661,7 @@ function renderRemiMeja(room, playersBySeat) {
     `);
     anyShown = true;
   }
-  el.innerHTML = anyShown ? sections.join('') : '<div class="remi-meja-empty">Belum ada kartu diturunkan</div>';
+  setSafeHTML(el, anyShown ? sections.join('') : '<div class="remi-meja-empty">Belum ada kartu diturunkan</div>');
 }
 
 // Toast notification when ANY player declares ceki (so all players see it).
@@ -12207,7 +12207,7 @@ function openRemiPickupModal(room, discard) {
   // Shared close handler — fully hides the overlay (display:none + reset
   // button pointer-events) so it can never intercept clicks while invisible.
   const closeModal = () => hideRemiOverlay(overlay);
-  optionsEl.innerHTML = '';
+  setSafeHTML(optionsEl, '');
   const last5 = discard.slice(-4).reverse(); // newest first (max 4 takeable)
   const maxDepth = Math.min(4, last5.length);
   const handRaw = (room.remi && room.remi.hands && (room.remi.hands[mySeat] || room.remi.hands[String(mySeat)])) || [];
@@ -12672,20 +12672,20 @@ function renderRemiPause(room) {
   gv.classList.add('remi-paused');
   modal.classList.add('show');
   const byEl = document.getElementById('remiPauseBy');
-  if (byEl) byEl.innerHTML = `⏸ <b>${escapeHtml(pause.byName || ('Kursi ' + (pause.by + 1)))}</b> menjeda permainan`;
+  if (byEl) setSafeHTML(byEl, `⏸ <b>${escapeHtml(pause.byName || ('Kursi ' + (pause.by + 1)))}</b> menjeda permainan`);
   const ready = pause.ready || {};
   const humans = Object.values(room.players || {}).filter(p => !isBotControlled(p)).sort((a, b) => a.seat - b.seat);
   const isReady = (p) => !!(ready[p.seat] || ready[String(p.seat)]);
   const listEl = document.getElementById('remiPauseReadyList');
   if (listEl) {
-    listEl.innerHTML = humans.map(p => {
+    setSafeHTML(listEl, humans.map(p => {
       const r = isReady(p);
       const mineTag = (p.seat === mySeat && !isSpectator) ? ' (Anda)' : '';
       return `<div class="remi-pause-row ${r ? 'ready' : 'waiting'}">
         <span class="rp-name">${escapeHtml(p.nickname)}${mineTag}</span>
         <span class="rp-status">${r ? '✓ Siap' : '⏳ Menunggu'}</span>
       </div>`;
-    }).join('');
+    }).join(''));
   }
   const readyCount = humans.filter(isReady).length;
   const cntEl = document.getElementById('remiPauseCount');
@@ -13527,10 +13527,9 @@ function showMatchCapPopup(name, type) {
   const text = type === 'low'
     ? `buset cupu banget <b>${escapeHtml(name)}</b> -1000 cuy, reset match!`
     : `Permainan berakhir karena <b>${escapeHtml(name)}</b> terlalu jago 1000 Poin`;
-  wrap.innerHTML =
-    `<div class="cap-emoji">${emoji}</div>` +
+  setSafeHTML(wrap, `<div class="cap-emoji">${emoji}</div>` +
     `<div class="cap-text">${text}</div>` +
-    `<button class="cap-min-btn">— Sembunyikan</button>`;
+    `<button class="cap-min-btn">— Sembunyikan</button>`);
   document.body.appendChild(wrap);
   const minBtn = wrap.querySelector('.cap-min-btn');
   // Toggle minimize: clicking the minimized chip restores it.
@@ -13645,7 +13644,7 @@ function renderRemiEndModal(room) {
       // Stuck → orange: "[Player] Tidak Bisa Membuang Kartu"
       const stuckName = escapeHtml(c.stuckName || 'Seseorang');
       title.style.color = '#f2994a';
-      title.innerHTML = `${stuckName} Tidak Bisa Membuang Kartu`;
+      setSafeHTML(title, `${stuckName} Tidak Bisa Membuang Kartu`);
     } else if (closedBy != null) {
       const closer = playersBySeat[closedBy];
       const name = escapeHtml(closer ? closer.nickname : 'Seseorang');
@@ -13668,16 +13667,16 @@ function renderRemiEndModal(room) {
           .map(p => escapeHtml(p.nickname));
         const ditutupStr = ditutupNames.length ? ' ' + ditutupNames.join(' & ') : '';
         title.style.color = '#eb5757';
-        title.innerHTML = `${name} Menutup ${escapeHtml(cardLabel)}${ditutupStr}`;
+        setSafeHTML(title, `${name} Menutup ${escapeHtml(cardLabel)}${ditutupStr}`);
       } else {
         // Tutup cabutan → kuning: "[Closer] Menutup Dari Cabutan"
         title.style.color = '#f2c94c';
-        title.innerHTML = `${name} Menutup Dari Cabutan`;
+        setSafeHTML(title, `${name} Menutup Dari Cabutan`);
       }
     } else {
       // Deck habis → putih: "Ronde Selesai"
       title.style.color = '#ffffff';
-      title.innerHTML = 'Ronde Selesai';
+      setSafeHTML(title, 'Ronde Selesai');
     }
   }
   const handJadi = c.handJadi || {};
@@ -13714,8 +13713,7 @@ function renderRemiEndModal(room) {
       </tr>`;
     }).join('');
   const body = document.getElementById('remiEndBody');
-  body.innerHTML =
-    `<div class="end-section">
+  setSafeHTML(body, `<div class="end-section">
       <div class="end-section-title">Hasil Ronde ${c.roundNumber || 1}${
         endReason === 'closed' ? ' — Ditutup' : endReason === 'stuck' ? ' — Pemain Stuck' : ' — Deck Habis'
       }</div>
@@ -13730,7 +13728,7 @@ function renderRemiEndModal(room) {
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
-    </div>`;
+    </div>`);
   // ----- Minimize toggle: collapse the score panel so players can review the
   // board (revealed hands + meja) without it in the way; click to restore.
   const infoPanel = overlay.querySelector('.remi-end-info');
@@ -13806,7 +13804,7 @@ function renderRemiEndModal(room) {
       const reason = c.matchOverReason === 'points'
         ? 'Seorang pemain mencapai ±1000 poin!'
         : 'Batas 20 ronde tercapai!';
-      statusEl.innerHTML = `🏁 <b>Match Selesai</b> · ${reason}`;
+      setSafeHTML(statusEl, `🏁 <b>Match Selesai</b> · ${reason}`);
     }
     if (readyBtn) readyBtn.style.display = 'none';
     if (nextBtn) nextBtn.style.display = 'none';
@@ -13834,7 +13832,7 @@ function renderRemiEndModal(room) {
       const names = notReady.map(p => escapeHtml(p.nickname)).join(', ');
       html += ` — menunggu: <b>${names}</b>`;
     }
-    statusEl.innerHTML = html;
+    setSafeHTML(statusEl, html);
   }
 
   // ----- Buttons -----
@@ -13911,7 +13909,7 @@ function openRemiDiscardLog(room) {
   const playersBySeat = {};
   for (const p of Object.values((room && room.players) || {})) playersBySeat[p.seat] = p;
   if (discard.length === 0) {
-    bodyEl.innerHTML = '<div style="text-align:center;opacity:0.6;padding:18px;">Belum ada kartu dibuang.</div>';
+    setSafeHTML(bodyEl, '<div style="text-align:center;opacity:0.6;padding:18px;">Belum ada kartu dibuang.</div>');
   } else {
     // Group rows of cards (oldest → newest) with the discarder's name.
     const rowsHtml = discard.map((entry, i) => {
@@ -13925,7 +13923,7 @@ function openRemiDiscardLog(room) {
         <span style="font-family:var(--font-display);font-size:14px;color:rgba(244,234,213,0.8);">dibuang oleh <b style="color:var(--gold-bright)">${who}</b></span>
       </div>`;
     }).join('');
-    bodyEl.innerHTML = `<div style="display:flex;flex-direction:column;">${rowsHtml}</div>`;
+    setSafeHTML(bodyEl, `<div style="display:flex;flex-direction:column;">${rowsHtml}</div>`);
   }
   if (overlay.parentElement !== document.body) document.body.appendChild(overlay);
   overlay.style.display = '';
@@ -13980,8 +13978,8 @@ function renderRemiTournamentEnd(room) {
     ? `kali ini si cupu <b>${escapeHtml(loser.name)}</b> kalah lagi, mohon berlatih lebih keras! 💀`
     : 'Terima kasih sudah bermain!';
   const body = document.getElementById('remiTournamentEndBody');
-  body.innerHTML = `<div class="end-section"><div class="end-section-title">Klasemen Akhir</div><div class="standings-table">${rowsHtml}</div></div>` +
-    `<div class="standings-loser-msg">${loserMsg}</div>`;
+  setSafeHTML(body, `<div class="end-section"><div class="end-section-title">Klasemen Akhir</div><div class="standings-table">${rowsHtml}</div></div>` +
+    `<div class="standings-loser-msg">${loserMsg}</div>`);
   showRemiOverlay(overlay);
   if (!_remiTournamentEndShown) { _remiTournamentEndShown = true; try { Sound.winFanfare(); } catch (e) {} }
   const isHost = room.host === myUid;
@@ -14552,13 +14550,13 @@ function applyBidSelectionToDOM() {
 function populateBidModalGrid(hand) {
   const gridEl = document.getElementById('bidHandGrid');
   if (!gridEl) return;
-  gridEl.innerHTML = '';
+  setSafeHTML(gridEl, '');
   hand.forEach((c, i) => {
     const el = document.createElement('div');
     const isFace = ['J','Q','K','A'].includes(c.rank);
     el.className = `card ${SUIT_COLOR[c.suit]}${isFace ? ' face-card' : ''}`;
     el.dataset.idx = i;
-    el.innerHTML = renderCardInnerHTML(c);
+    setSafeHTML(el, renderCardInnerHTML(c));
     el.addEventListener('click', () => toggleBidSelection(i));
     gridEl.appendChild(el);
   });
@@ -15855,6 +15853,7 @@ async function submitBotBid(seat, hand, difficulty) {
 }
 
 function renderCardInnerHTML(c) {
+  if (!GameDisplay.isCard(c)) return '<span role="img" aria-label="Kartu tidak valid">?</span>';
   const isFace = ['J','Q','K','A'].includes(c.rank);
   // For J/Q/K cards, use full custom card art image (image already contains border + corners + center)
   if (c.rank === 'J' || c.rank === 'Q' || c.rank === 'K') {
@@ -16001,13 +16000,19 @@ function cangkulLeadStateAfterCard(card, prevLeadSuit, prevPending) {
 // Render a single card element (used both for hand and trick area)
 function renderCangkulCardEl(card) {
   const el = document.createElement('div');
+  if (!GameDisplay.isCard(card)) {
+    el.className = 'card card-back';
+    el.setAttribute('aria-label', 'Kartu tidak valid');
+    el.textContent = '?';
+    return el;
+  }
   if (card.rank === 'JOKER') {
     el.className = `card joker ${card.color === 'red' ? 'red' : 'black'}`;
-    el.innerHTML = `<img class="joker-art" src="cards/JOKER-${card.color === 'red' ? 'RED' : 'BLACK'}.png?v=2" alt="JOKER" draggable="false">`;
+    setSafeHTML(el, `<img class="joker-art" src="cards/JOKER-${card.color === 'red' ? 'RED' : 'BLACK'}.png?v=2" alt="JOKER" draggable="false">`);
   } else {
     const isFace = ['J','Q','K','A'].includes(card.rank);
     el.className = `card ${SUIT_COLOR[card.suit]}${isFace ? ' face-card' : ''}`;
-    el.innerHTML = renderCardInnerHTML(card);
+    setSafeHTML(el, renderCardInnerHTML(card));
   }
   return el;
 }
@@ -16030,21 +16035,21 @@ function renderCangkulStandings(room) {
   if (!el) return;
   const totals = room.totals || {};
   const players = Object.values(room.players || {});
-  if (!players.length) { el.innerHTML = ''; return; }
+  if (!players.length) { setSafeHTML(el, ''); return; }
   const rows = players.map(p => ({
     name: p.nickname,
     total: (totals[p.seat] != null ? totals[p.seat] : totals[String(p.seat)]) || 0,
     isMe: p.uid === myUid,
   }));
   rows.sort((a, b) => b.total - a.total);
-  el.innerHTML = rows.map((r, idx) => {
+  setSafeHTML(el, rows.map((r, idx) => {
     const cls = (idx === 0 && r.total > 0) ? 'lb-first' :
                 (idx === rows.length - 1 && rows.length > 1) ? 'lb-last' : '';
     return `<div class="lb-row ${cls}">` +
       `<span class="lb-rank">${idx + 1}.</span>` +
       `<span class="lb-name ${r.isMe ? 'me' : ''}">${escapeHtml(r.name)}</span>` +
       `<span class="lb-score">${r.total}</span></div>`;
-  }).join('');
+  }).join(''));
 }
 
 let _cangkulLowPileKey = null; // tracks the round we've already shown "8 cards left" for
@@ -16078,7 +16083,7 @@ function renderCangkulGameView(room) {
 
   // --- Render OTHER players ---
   const others = document.getElementById('cangkulOthers');
-  others.innerHTML = '';
+  setSafeHTML(others, '');
   for (const p of players) {
     if (p.seat === mySeat) continue;
     const handRaw = (c.hands && (c.hands[p.seat] || c.hands[String(p.seat)])) || [];
@@ -16089,18 +16094,18 @@ function renderCangkulGameView(room) {
     el.className = 'cangkul-other' + (isTurn ? ' is-turn' : '') + (isOut ? ' is-out' : '');
     let cardsHtml = '';
     for (let i = 0; i < Math.min(handArr.length, 14); i++) cardsHtml += '<div class="mini-back"></div>';
-    el.innerHTML = `
+    setSafeHTML(el, `
       <div class="cangkul-other-name">${escapeHtml(p.nickname)}</div>
       <div class="cangkul-other-meta">Kursi ${p.seat + 1}${p.isBot ? ' · BOT' : ''}${isOut ? ' · KELUAR' : ''}</div>
       <div class="cangkul-other-cards">${cardsHtml}</div>
       <div class="cangkul-other-meta" style="margin-top:6px">${handArr.length} kartu</div>
-    `;
+    `);
     others.appendChild(el);
   }
 
   // --- Render TRICK (cards played this round) ---
   const trickEl = document.getElementById('cangkulTrick');
-  trickEl.innerHTML = '';
+  setSafeHTML(trickEl, '');
   // Add resolving class when trick is complete — triggers fade-out animation
   const trickComplete = activeSeats.length > 0 && trick.length === activeSeats.length;
   trickEl.classList.toggle('resolving', trickComplete);
@@ -16121,8 +16126,8 @@ function renderCangkulGameView(room) {
   const banner = document.getElementById('cangkulTurnBanner');
   const handEl = document.getElementById('cangkulMyHand');
   const actionsEl = document.getElementById('cangkulActions');
-  handEl.innerHTML = '';
-  actionsEl.innerHTML = '';
+  setSafeHTML(handEl, '');
+  setSafeHTML(actionsEl, '');
 
   const roundComplete = (c.turnsTaken || 0) >= activeSeats.length && activeSeats.length > 0;
   const isMyTurn = (currentPlayer === mySeat) && activeSeats.includes(mySeat) && !roundComplete;
@@ -16162,7 +16167,7 @@ function renderCangkulGameView(room) {
     const isRedLead = (leadSuit === 'H' || leadSuit === 'D');
     bannerHtml += `<div class="cangkul-joker-hint">Joker yang valid: ${isRedLead ? 'JOKER MERAH (♥ ♦)' : 'JOKER HITAM (♠ ♣)'}</div>`;
   }
-  banner.innerHTML = bannerHtml;
+  setSafeHTML(banner, bannerHtml);
 
   // Identify "just drawn" card so we can animate it sliding in from the pile.
   const lastDrawnBy = c.lastDrawnBy;
@@ -16502,9 +16507,8 @@ function renderCangkulEndModal(room) {
   }).join('');
 
   const body = document.getElementById('cangkulEndBody');
-  body.innerHTML =
-    `<div class="end-section"><div class="end-section-title">Hasil Sesi ${c.sessionNumber || 1}</div>${sessionRows || '<p>—</p>'}</div>` +
-    `<div class="end-section"><div class="end-section-title">Klasemen Akumulasi</div>${standingRows || '<p>—</p>'}</div>`;
+  setSafeHTML(body, `<div class="end-section"><div class="end-section-title">Hasil Sesi ${c.sessionNumber || 1}</div>${sessionRows || '<p>—</p>'}</div>` +
+    `<div class="end-section"><div class="end-section-title">Klasemen Akumulasi</div>${standingRows || '<p>—</p>'}</div>`);
   overlay.classList.add('show');
   // Host-only actions
   const isHost = room.host === myUid;
@@ -16583,9 +16587,8 @@ function renderCangkulTournamentEnd(room) {
     const meCls = r.isMe ? ' me' : '';
     return `<div class="end-row${meCls}"><span>${icon} <b>${escapeHtml(r.name)}</b></span><span><b>${r.total} poin</b></span></div>`;
   }).join('');
-  body.innerHTML =
-    `<div class="end-section"><div class="end-section-title">Klasemen Akhir</div>${rowsHtml || '<p>—</p>'}</div>` +
-    `<div class="end-section-title" style="margin-top:14px;text-align:center;opacity:0.7;">Terima kasih sudah bermain!</div>`;
+  setSafeHTML(body, `<div class="end-section"><div class="end-section-title">Klasemen Akhir</div>${rowsHtml || '<p>—</p>'}</div>` +
+    `<div class="end-section-title" style="margin-top:14px;text-align:center;opacity:0.7;">Terima kasih sudah bermain!</div>`);
 
   overlay.classList.add('show');
   // Play applause SFX once on first transition into this phase
@@ -16946,7 +16949,7 @@ function renderPlayAreaInfo(room, playersBySeat, currentBidderSeat) {
       // Simultaneous bidding — everyone bids at once
       const iBid = !!getBidForSeat(bids, mySeat);
       if (!iBid) {
-        el.innerHTML = `<b style="color:var(--gold-bright)">Pilih kartu komitmen Anda</b>`;
+        setSafeHTML(el, `<b style="color:var(--gold-bright)">Pilih kartu komitmen Anda</b>`);
       } else {
         el.textContent = `Menunggu pemain lain bid... (${bidCount}/4)`;
       }
@@ -16955,7 +16958,7 @@ function renderPlayAreaInfo(room, playersBySeat, currentBidderSeat) {
       el.textContent = 'Membuka kartu bid...';
     } else if (revealed && confirmCount < 4) {
       // Revealed, waiting for confirmations
-      el.innerHTML = `Konfirmasi bid · ${confirmCount}/4 sudah konfirm`;
+      setSafeHTML(el, `Konfirmasi bid · ${confirmCount}/4 sudah konfirm`);
     } else if (revealed && confirmCount >= 4) {
       // Done — bidResult will show in modal + trump label in topbar
       if (room.bidResult) {
@@ -16963,9 +16966,9 @@ function renderPlayAreaInfo(room, playersBySeat, currentBidderSeat) {
         const trumpLabel = room.bidResult.noTrump ? 'NT' : SUIT_SYMBOLS[room.bidResult.trumpSuit];
         const modeShort = room.bidResult.mode === 'atas' ? 'main atas'
                         : room.bidResult.mode === 'bawah' ? 'main bawah' : 'tie';
-        el.innerHTML = `<b style="color:var(--gold-bright)">${escapeHtml(winnerName)}</b> menang bid · Truf <b style="color:var(--gold-bright)">${trumpLabel}</b><br><span style="font-size:13px;opacity:0.7">${modeShort} · siap main</span>`;
+        setSafeHTML(el, `<b style="color:var(--gold-bright)">${escapeHtml(winnerName)}</b> menang bid · Truf <b style="color:var(--gold-bright)">${trumpLabel}</b><br><span style="font-size:13px;opacity:0.7">${modeShort} · siap main</span>`);
       } else {
-        el.innerHTML = `<b style="color:var(--gold-bright)">Bidding selesai</b><br><span style="font-size:13px;opacity:0.7">Menentukan pemenang...</span>`;
+        setSafeHTML(el, `<b style="color:var(--gold-bright)">Bidding selesai</b><br><span style="font-size:13px;opacity:0.7">Menentukan pemenang...</span>`);
       }
     } else {
       el.textContent = '';
@@ -17020,14 +17023,14 @@ function renderBidZones(room, playersBySeat) {
     const zone = document.getElementById(`bidzone-${pos}`);
     if (!zone) continue;
     if (inPlayPhase) {
-      zone.innerHTML = '';
+      setSafeHTML(zone, '');
       continue;
     }
     const bid = getBidForSeat(bids, absSeat);
     const player = playersBySeat[absSeat];
 
     if (!bid) {
-      zone.innerHTML = '';
+      setSafeHTML(zone, '');
       continue;
     }
 
@@ -17048,7 +17051,7 @@ function renderBidZones(room, playersBySeat) {
       const name = player ? player.nickname : '?';
       html += `<div class="bid-label">${escapeHtml(name)} · <span style="color:var(--gold-bright)">${bid.point} ${trumpLabel}</span></div>`;
     }
-    zone.innerHTML = html;
+    setSafeHTML(zone, html);
   }
 }
 
@@ -17067,7 +17070,7 @@ function renderConfirmButtons(room, playersBySeat) {
     if (!slot) continue;
 
     if (!revealed || inPlayPhase) {
-      slot.innerHTML = '';
+      setSafeHTML(slot, '');
       continue;
     }
 
@@ -17077,15 +17080,15 @@ function renderConfirmButtons(room, playersBySeat) {
     const isBot = isBotControlled(player);
 
     if (already) {
-      slot.innerHTML = `<button class="confirm-btn confirmed" disabled>Terkonfirmasi</button>`;
+      setSafeHTML(slot, `<button class="confirm-btn confirmed" disabled>Terkonfirmasi</button>`);
     } else if (isMe) {
       // Render an active confirm button for me
-      slot.innerHTML = `<button class="confirm-btn" id="my-confirm-btn">Konfirmasi</button>`;
+      setSafeHTML(slot, `<button class="confirm-btn" id="my-confirm-btn">Konfirmasi</button>`);
       const btn = document.getElementById('my-confirm-btn');
       if (btn) btn.onclick = submitMyConfirm;
     } else {
       // Bot or other human - show pending state
-      slot.innerHTML = `<button class="confirm-btn" disabled>${isBot ? 'Menunggu bot' : 'Menunggu'}</button>`;
+      setSafeHTML(slot, `<button class="confirm-btn" disabled>${isBot ? 'Menunggu bot' : 'Menunggu'}</button>`);
     }
   }
 }
@@ -17299,7 +17302,7 @@ function renderBidResultModal(room, playersBySeat) {
     const marker = seat === result.winner ? ' ★' : '';
     html += `<div class="name">${escapeHtml(name)}${marker}</div><div class="val">${val}</div>`;
   }
-  commitsEl.innerHTML = html;
+  setSafeHTML(commitsEl, html);
 
   // Show tie-decision note if this result was reached via tie decision
   const tieNoteEl = document.getElementById('brTieNote');
@@ -17342,8 +17345,8 @@ function ensureTieDecisionButtonsRendered() {
     naikHtml += `<button class="btn naik" data-delta="${x}">Naik ${x}</button>`;
     turunHtml += `<button class="btn turun" data-delta="${-x}">Turun ${x}</button>`;
   }
-  naikEl.innerHTML = naikHtml;
-  turunEl.innerHTML = turunHtml;
+  setSafeHTML(naikEl, naikHtml);
+  setSafeHTML(turunEl, turunHtml);
   // Wire each button
   document.querySelectorAll('#tdNaikButtons .btn, #tdTurunButtons .btn').forEach(btn => {
     btn.onclick = () => {
@@ -17584,7 +17587,7 @@ function renderPlayedCards(room, playersBySeat) {
     } else {
       const isFace = ['J','Q','K','A'].includes(p.card.rank);
       cardEl.className = `card ${SUIT_COLOR[p.card.suit]}${isFace ? ' face-card' : ''}`;
-      cardEl.innerHTML = renderCardInnerHTML(p.card);
+      setSafeHTML(cardEl, renderCardInnerHTML(p.card));
     }
     wrap.appendChild(cardEl);
 
@@ -17619,7 +17622,7 @@ function doTrickRevealAndHighlight(currentTrick, play, trumpSuit, noTrump) {
       cardEl.classList.remove('card-back');
       cardEl.classList.add(SUIT_COLOR[p.card.suit]);
       if (isFace) cardEl.classList.add('face-card');
-      cardEl.innerHTML = renderCardInnerHTML(p.card);
+      setSafeHTML(cardEl, renderCardInnerHTML(p.card));
     }, 350);
   }
   // Highlight winner card after the flip
@@ -17650,7 +17653,7 @@ function renderPlayAreaInfoPlaying(room, playersBySeat) {
   const player = playersBySeat[play.currentPlayer];
   const name = player ? player.nickname : '?';
   if (play.currentPlayer === mySeat) {
-    el.innerHTML = `<b style="color:var(--gold-bright)">Giliran Anda · Jadi ${trickN}</b>`;
+    setSafeHTML(el, `<b style="color:var(--gold-bright)">Giliran Anda · Jadi ${trickN}</b>`);
   } else {
     el.textContent = `Jadi ${trickN} · Menunggu ${name}...`;
   }
@@ -17913,12 +17916,12 @@ function renderSessionEndModal(room, playersBySeat) {
     </tr>`;
   }
 
-  document.getElementById('seContent').innerHTML = `
+  setSafeHTML(document.getElementById('seContent'), `
     <table class="scoreboard">
       <thead><tr><th>Pemain</th><th>Bid</th><th>Jadi</th><th>Δ Sesi</th><th>Total</th><th>Status</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
-  `;
+  `);
 
   // ---- Ready system: every non-host human must press Ready before the host
   // can advance to the next session. Bots & disconnected seats count as ready.
@@ -17942,7 +17945,7 @@ function renderSessionEndModal(room, playersBySeat) {
     const cls = ready ? 'ready' : 'waiting';
     chips += `<span class="se-ready-chip ${cls}">${escapeHtml(player.nickname)}: ${label}</span>`;
   }
-  document.getElementById('seReadyStatus').innerHTML = chips;
+  setSafeHTML(document.getElementById('seReadyStatus'), chips);
 
   // Ready button — shown to non-host humans only
   const readyBtn = document.getElementById('seReadyBtn');
@@ -18026,7 +18029,7 @@ function renderTournamentEndModal(room, playersBySeat) {
   });
 
   const sessions = (room.gameState && room.gameState.session) || 1;
-  document.getElementById('teContent').innerHTML = `
+  setSafeHTML(document.getElementById('teContent'), `
     <p style="text-align:center;margin-bottom:14px;color:rgba(244,234,213,0.75);">
       Total ${sessions} sesi dimainkan.
     </p>
@@ -18034,7 +18037,7 @@ function renderTournamentEndModal(room, playersBySeat) {
       <thead><tr><th>Peringkat</th><th>Pemain</th><th>Skor Akhir</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
-  `;
+  `);
 
   const isHost = (room.host === myUid);
   const restartBtn = document.getElementById('teRestartBtn');
@@ -18306,7 +18309,7 @@ function renderSeat(pos, absSeat, player, room, isTurn) {
     nameEl.textContent = '[Slot Kosong]';
     if (roleEl) roleEl.textContent = '';
     statsEl.textContent = '';
-    handEl.innerHTML = '';
+    setSafeHTML(handEl, '');
     return;
   }
 
@@ -18317,7 +18320,7 @@ function renderSeat(pos, absSeat, player, room, isTurn) {
   if (isTurn) card.classList.add('is-turn');
 
   // Role tag below the name (subtle) + disconnect status / countdown
-  if (roleEl) roleEl.innerHTML = buildRoleHtml(player, absSeat);
+  if (roleEl) setSafeHTML(roleEl, buildRoleHtml(player, absSeat));
 
   // Stats line — single-player style: SKOR · BID · TRIK
   const totals = room.totals || {};
@@ -18338,19 +18341,18 @@ function renderSeat(pos, absSeat, player, room, isTurn) {
   else if (myRank === 2 || myRank === 3) rankCls = 'rank-mid';
   else if (myRank === 4) rankCls = 'rank-last';
   // Order: BID · JADI | SKOR · RANK  (separator splits commitment-stats from result-stats)
-  statsEl.innerHTML =
-    `<span class="stat">BID <b>${bidText}</b></span>` +
+  setSafeHTML(statsEl, `<span class="stat">BID <b>${bidText}</b></span>` +
     `<span class="stat">JADI <b>${tw}</b></span>` +
     `<span class="stat-sep" aria-hidden="true"></span>` +
     `<span class="stat ${scoreCls}">SKOR <b>${score}</b></span>` +
-    `<span class="stat ${rankCls}">RANK <b>${rankText}</b></span>`;
+    `<span class="stat ${rankCls}">RANK <b>${rankText}</b></span>`);
 
   // Render hand: my own = face up; others = face down (count = number of cards)
   renderHand(handEl, absSeat, pos, room);
 }
 
 function renderHand(handEl, absSeat, pos, room) {
-  handEl.innerHTML = '';
+  setSafeHTML(handEl, '');
   const hands = room.hands || {};
   const cards = hands[absSeat] || [];
   const cardCount = Array.isArray(cards) ? cards.length : 0;
@@ -18369,7 +18371,7 @@ function renderHand(handEl, absSeat, pos, room) {
       const el = document.createElement('div');
       const isFace = ['J','Q','K','A'].includes(c.rank);
       el.className = `card ${SUIT_COLOR[c.suit]}${isFace ? ' face-card' : ''}`;
-      el.innerHTML = renderCardInnerHTML(c);
+      setSafeHTML(el, renderCardInnerHTML(c));
       if (isMyPlayTurn) {
         if (canPlayCard(cards, c, leadSuit)) {
           el.classList.add('play-playable');
@@ -18424,7 +18426,7 @@ function setBtnLoading(btnId, loading, loadingText) {
   const btn = document.getElementById(btnId);
   if (loading) {
     if (!btn.dataset.origText) btn.dataset.origText = btn.textContent;
-    btn.innerHTML = (loadingText || 'Memproses...') + ' <span class="loading-spinner"></span>';
+    setSafeHTML(btn, (loadingText || 'Memproses...') + ' <span class="loading-spinner"></span>');
     btn.disabled = true;
   } else {
     if (btn.dataset.origText) {
@@ -18439,6 +18441,10 @@ function setConnectionStatus(text, type) {
   const el = document.getElementById('connectionStatus');
   el.textContent = text;
   el.style.color = type === 'success' ? 'var(--green)' : (type === 'error' ? 'var(--red)' : 'var(--gold)');
+}
+
+function setSafeHTML(element, markup) {
+  GameDisplay.setHTML(element, markup);
 }
 
 function escapeHtml(str) {
@@ -18770,7 +18776,7 @@ function renderTebakGameView(room) {
 
   // Opponents — bigger boxes with card-back preview
   const oppEl = document.getElementById('tebakOpponents');
-  oppEl.innerHTML = '';
+  setSafeHTML(oppEl, '');
   for (let s = 0; s < numP; s++) {
     if (s === mySeat) continue;
     const p = playersBySeat[s];
@@ -18787,13 +18793,13 @@ function renderTebakGameView(room) {
     const previewCount = Math.min(hand.length, 6);
     let backs = '';
     for (let i = 0; i < previewCount; i++) backs += '<div class="opp-card-back"></div>';
-    div.innerHTML = `
+    setSafeHTML(div, `
       <div class="opp-name">${escapeHtml(p.nickname)}</div>
       <div class="opp-meta">Kursi ${s + 1}${p.isBot ? ' · BOT' : ''}</div>
       <div class="opp-cards-preview">${backs}</div>
       <div class="opp-cards-count">${hand.length} kartu</div>
       <div class="opp-jadi">Jadi: ${jadiArr.length}</div>
-    `;
+    `);
     oppEl.appendChild(div);
   }
 
@@ -18811,13 +18817,13 @@ function renderTebakGameView(room) {
       const row = document.createElement('div');
       row.className = 'tebak-all-jadi-row';
       const isMe = (s === mySeat);
-      row.innerHTML = `
+      setSafeHTML(row, `
         <div class="tebak-all-jadi-name">${escapeHtml(p.nickname)}${isMe ? ' (kamu)' : ''}</div>
         <div class="tebak-all-jadi-sets"></div>
-      `;
+      `);
       const setsContainer = row.querySelector('.tebak-all-jadi-sets');
       if (jadiArr.length === 0) {
-        setsContainer.innerHTML = '<span class="tebak-all-jadi-empty">belum ada</span>';
+        setSafeHTML(setsContainer, '<span class="tebak-all-jadi-empty">belum ada</span>');
       } else {
         for (const set of jadiArr) {
           const setEl = document.createElement('div');
@@ -18848,12 +18854,12 @@ function renderTebakGameView(room) {
   const isMyTurn = (currentPlayer === mySeat);
   try { TurnReminder.set(isMyTurn && myHand.length > 0 && room.phase === 'playing'); } catch (e) {}
   if (selfEl) {
-    selfEl.innerHTML = `
+    setSafeHTML(selfEl, `
       <span><b>${escapeHtml((playersBySeat[mySeat] || {}).nickname || '—')}</b></span>
       <span>Kartu: ${myHand.length}</span>
       <span style="color:#6fcf97;font-weight:700;">Jadi: ${myJadi.length}</span>
       ${isMyTurn ? '<span style="color:var(--gold-bright);">🎯 Giliranmu!</span>' : ''}
-    `;
+    `);
   }
 
   // Deteksi kartu baru untuk animasi (compare current vs last hand)
@@ -18893,7 +18899,7 @@ function renderTebakGameView(room) {
 
   // My hand — sorted by rank (A,2-10,J,Q,K)
   const handEl = document.getElementById('tebakHand');
-  handEl.innerHTML = '';
+  setSafeHTML(handEl, '');
   const sortedHand = myHand.slice().sort(sortTebakHandCompare);
   for (const card of sortedHand) {
     const el = renderRemiCardEl(card);
@@ -18910,20 +18916,20 @@ function renderTebakGameView(room) {
     const aPlayer = playersBySeat[lastAction.by];
     const aName = aPlayer ? aPlayer.nickname : 'Seseorang';
     const fourSuffix = (Array.isArray(lastAction.four) && lastAction.four.length > 0)
-      ? ` <span style="color:#f0c969;font-weight:700;">🎉 4× ${lastAction.four.join(', ')}</span>`
+      ? ` <span style="color:#f0c969;font-weight:700;">🎉 4× ${escapeHtml(lastAction.four.join(', '))}</span>`
       : '';
     if (lastAction.type === 'guess_hit') {
       const tPlayer = playersBySeat[lastAction.target];
       const tName = tPlayer ? tPlayer.nickname : '?';
-      statusEl.innerHTML = `✅ <b>${escapeHtml(aName)}</b> menebak <b>${lastAction.rank}</b> dari <b>${escapeHtml(tName)}</b> · dapat ${lastAction.count} kartu!${fourSuffix}`;
+      setSafeHTML(statusEl, `✅ <b>${escapeHtml(aName)}</b> menebak <b>${escapeHtml(lastAction.rank)}</b> dari <b>${escapeHtml(tName)}</b> · dapat ${escapeHtml(lastAction.count)} kartu!${fourSuffix}`);
     } else if (lastAction.type === 'guess_miss') {
       const tPlayer = playersBySeat[lastAction.target];
       const tName = tPlayer ? tPlayer.nickname : '?';
       const tgtTxt = tPlayer ? ` dari <b>${escapeHtml(tName)}</b>` : '';
-      statusEl.innerHTML = `❌ <b>${escapeHtml(aName)}</b> menebak <b>${lastAction.rank}</b>${tgtTxt} · tidak ada${lastAction.noDraw ? '' : ', ambil cabutan'}${fourSuffix}`;
+      setSafeHTML(statusEl, `❌ <b>${escapeHtml(aName)}</b> menebak <b>${escapeHtml(lastAction.rank)}</b>${tgtTxt} · tidak ada${lastAction.noDraw ? '' : ', ambil cabutan'}${fourSuffix}`);
     } else if (lastAction.type === 'four_of_kind') {
       // Legacy fallback
-      statusEl.innerHTML = `🎉 <b>${escapeHtml(aName)}</b> mengumpulkan 4× <b>${lastAction.rank}</b>!`;
+      setSafeHTML(statusEl, `🎉 <b>${escapeHtml(aName)}</b> mengumpulkan 4× <b>${escapeHtml(lastAction.rank)}</b>!`);
     }
   }
 
@@ -18981,9 +18987,9 @@ function renderTebakGameView(room) {
   if (logList) {
     const logRaw = c.log || [];
     const logArr = Array.isArray(logRaw) ? logRaw : Object.values(logRaw);
-    logList.innerHTML = '';
+    setSafeHTML(logList, '');
     if (logArr.length === 0) {
-      logList.innerHTML = '<div class="tebak-log-entry" style="opacity:0.5;text-align:center;">Belum ada tebakan</div>';
+      setSafeHTML(logList, '<div class="tebak-log-entry" style="opacity:0.5;text-align:center;">Belum ada tebakan</div>');
     } else {
       // Tampilkan urutan terbaru di atas
       const recent = logArr.slice().reverse();
@@ -18996,11 +19002,11 @@ function renderTebakGameView(room) {
         let cls = 'tebak-log-entry ' + (e.hit > 0 ? 'hit' : 'miss');
         if (e.four && e.four.length > 0) cls += ' four';
         div.className = cls;
-        const fourTxt = (e.four && e.four.length > 0) ? ` 🎉 4× ${e.four.join(', ')}` : '';
+        const fourTxt = (e.four && e.four.length > 0) ? ` 🎉 4× ${escapeHtml(e.four.join(', '))}` : '';
         if (e.hit > 0) {
-          div.innerHTML = `✅ <b>${escapeHtml(byName)}</b> tebak <b>${e.rank}</b> dari <b>${escapeHtml(tgtName)}</b> → dapat ${e.hit} kartu${fourTxt}`;
+          setSafeHTML(div, `✅ <b>${escapeHtml(byName)}</b> tebak <b>${escapeHtml(e.rank)}</b> dari <b>${escapeHtml(tgtName)}</b> → dapat ${escapeHtml(e.hit)} kartu${fourTxt}`);
         } else {
-          div.innerHTML = `❌ <b>${escapeHtml(byName)}</b> tebak <b>${e.rank}</b> dari <b>${escapeHtml(tgtName)}</b> → tidak ada${e.drew === false ? '' : ', ambil cabutan'}${fourTxt}`;
+          setSafeHTML(div, `❌ <b>${escapeHtml(byName)}</b> tebak <b>${escapeHtml(e.rank)}</b> dari <b>${escapeHtml(tgtName)}</b> → tidak ada${e.drew === false ? '' : ', ambil cabutan'}${fourTxt}`);
         }
         logList.appendChild(div);
       }
@@ -19023,7 +19029,7 @@ function openTebakGuessModal(room) {
 
   // Target buttons
   const targetsEl = document.getElementById('tebakGuessTargets');
-  targetsEl.innerHTML = '';
+  setSafeHTML(targetsEl, '');
   for (let s = 0; s < numP; s++) {
     if (s === mySeat) continue;
     const p = playersBySeat[s];
@@ -19045,7 +19051,7 @@ function openTebakGuessModal(room) {
 
   // Rank buttons — hanya rank yang ada di tangan sendiri
   const ranksEl = document.getElementById('tebakGuessRanks');
-  ranksEl.innerHTML = '';
+  setSafeHTML(ranksEl, '');
   const myHandRaw = (c.hands && (c.hands[mySeat] || c.hands[String(mySeat)])) || [];
   const myHand = Array.isArray(myHandRaw) ? myHandRaw : Object.values(myHandRaw);
   const myRanks = new Set(myHand.map(card => card.rank));
@@ -19344,7 +19350,7 @@ function renderTebakEndModal(room) {
     } else if (allHumansReady) {
       waitHint = `<div class="tebak-end-wait ok">✅ Semua pemain siap</div>`;
     }
-    body.innerHTML = `<div class="tebak-end-podium">${rows}</div>${waitHint}`;
+    setSafeHTML(body, `<div class="tebak-end-podium">${rows}</div>${waitHint}`);
   }
 
   // Minimize → tuck modal away, show floating restore button so user bisa lihat board
@@ -19493,7 +19499,7 @@ function renderTebakMatchEnd(room) {
         <span>${total} poin</span>
       </div>`;
     }).join('');
-    body.innerHTML = `<div class="end-section">${rows}</div>`;
+    setSafeHTML(body, `<div class="end-section">${rows}</div>`);
   }
   // Play end music
   try { Sound.playBgm('end'); } catch (e) {}
@@ -19579,7 +19585,7 @@ function renderTebakStandings(room) {
         <div class="tebak-end-pts${total === 0 ? ' zero' : ''}">${total}</div>
       </div>`;
     }).join('');
-    body.innerHTML = `<div class="tebak-end-podium">${rows}</div>`;
+    setSafeHTML(body, `<div class="tebak-end-podium">${rows}</div>`);
   }
   // Buttons
   const minBtn = document.getElementById('tebakStandingsMinBtn');
