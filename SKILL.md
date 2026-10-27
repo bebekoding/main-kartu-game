@@ -214,7 +214,8 @@ Setiap interactive component punya:
 ## 11. INFRASTRUCTURE
 
 - **Realtime DB:** Firebase RTDB di `asia-southeast1`
-- **Auto-cleanup room:** room tanpa human player atau dengan semua human stale > 5 menit auto-deleted (tiap 1 menit dari client logged-in)
+- **Auto-cleanup room:** batas 30 detik tanpa sinyal kehadiran manusia. Bot dan penonton tidak memperpanjang waktu. Client yang login memeriksa tiap detik; rules memeriksa ulang waktu server dan heartbeat saat penghapusan. Jika seluruh browser tutup, room kedaluwarsa dibersihkan ketika aplikasi dibuka lagi. Room tanpa timestamp kehadiran diberi penanda server dan masa tunggu 30 detik terlebih dahulu.
+- **Keluar penonton:** tombol global di luar game view dan modal, tetap bisa diklik saat jeda atau hasil akhir. Keluar wajib membersihkan modal, event room, audio, URL room, dan indikator jeda, lalu kembali ke lobby atau admin sesuai asal.
 - **Heartbeat:** `lastSeen` updated tiap beberapa detik; stale > 12s = away, > 42s = disconnected
 - **Deploy:** `cd /Users/960075/Documents/truf-game && firebase deploy --only hosting`
 

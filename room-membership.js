@@ -96,6 +96,9 @@
       if (before !== after) patch['seats/' + seat] = after;
     }
     if (room.membershipVersion !== 2) patch.membershipVersion = 2;
+    const hasHuman=Object.values(next.players||{}).some(p=>p.isBot===false);
+    if(hasHuman&&room.emptySince!=null)patch.emptySince=null;
+    else if(!hasHuman&&(room.emptySince==null||Object.values(room.players||{}).some(p=>p.isBot===false)))patch.emptySince={'.sv':'timestamp'};
     return patch;
   }
 

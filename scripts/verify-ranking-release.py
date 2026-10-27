@@ -18,7 +18,8 @@ assert policy['rankedMatches']['$matchId']['contract']['.validate']=='newData.va
 assert 'rankedAwards' in policy['leaderboards']['$game']['$username']['.write']
 assert policy['config']['leaderboardContract']=={'.read':True,'.write':False}
 checks=[(route,'truf-multiplayer-v3.html') for route in ['/','/truf','/remi','/cangkul','/tebak','/remi/ZZ0I']]
-checks += [(f'/{file}?v=3',file) for file in ['ranked-leaderboard.js','ranked-client.js','ranked-ui.js']]
+checks += [(f'/{file}?v=3',file) for file in ['ranked-leaderboard.js','ranked-client.js','ranked-ui.js','room-membership.js']]
+checks += [('/room-lifecycle.js?v=1','room-lifecycle.js')]
 def verify(pair):
     route,file=pair
     req=urllib.request.Request(args.base.rstrip('/')+route,headers={'Cache-Control':'no-cache'})

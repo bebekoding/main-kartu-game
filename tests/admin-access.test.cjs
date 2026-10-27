@@ -32,6 +32,7 @@ function setup(names=[]) {
     authEmailFor:u=>u+'@mainkartu.local',sanitizeKey:u=>u,
     setSafeHTML:(node,text)=>node.textContent=text,
     stopAdminRoomsAutoRefresh:()=>state.stopped++,startAdminRoomsAutoRefresh:()=>{},
+    startAutoCleanup:()=>{},stopAutoCleanup:()=>{},
     showAuthView:()=>state.authVisible=true,
     authSetError:msg=>state.error=msg,
     loadAdminRoomList:()=>state.adminLoads++,loadAdminUserList:()=>state.adminLoads++,

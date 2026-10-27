@@ -24,7 +24,8 @@
 <!-- Firebase SDK (modular v10) -->
 <script src="/vendor/dompurify/purify.min.js?v=3.4.17"></script>
 <script src="/game-display.js?v=1"></script>
-<script src="/room-membership.js?v=2"></script>
+<script src="/room-membership.js?v=3"></script>
+<script src="/room-lifecycle.js?v=1"></script>
 <script src="/ranked-leaderboard.js?v=3"></script>
 <script src="/ranked-client.js?v=3"></script>
 <script src="/ranked-ui.js?v=3"></script>
@@ -5390,6 +5391,9 @@
   }
 
   #rankedResultsModal { z-index: 10050; }
+  #spectatorExitBtn { position: fixed; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); z-index: 10100; width: auto; margin: 0; padding: 10px 16px; font-family: var(--font-sans); border-radius: var(--radius-control); }
+  #spectatorExitBtn[hidden] { display: none; }
+  @media (max-width: 700px) { #spectatorExitBtn { top: auto; bottom: max(16px, env(safe-area-inset-bottom)); font-size: 12px; min-height: 44px; } }
   #rankedResultsModal[hidden] { display: none; }
   .ranked-result-modal { max-width: 680px; max-height: 90vh; overflow-y: auto; }
   .ranked-result-note { border-top: 1px solid rgba(212,168,75,0.3); margin-top: 16px; padding-top: 12px; font-family: var(--font-sans); font-size: 13px; }
@@ -5673,6 +5677,7 @@
 <button id="muteBtn" class="top-ctrl-btn mute-btn" title="Suara on/off">&#128266;</button>
 <button id="audioSettingsBtn" class="top-ctrl-btn audio-settings-btn" title="Atur volume">&#127911;</button>
 <button id="hostControlBtn" class="top-ctrl-btn host-control-btn hidden" type="button">Host</button>
+<button id="spectatorExitBtn" class="btn primary" type="button" hidden>Keluar Tonton</button>
 <div class="modal-overlay" id="rankedResultsModal" role="dialog" aria-modal="true" aria-labelledby="rankedResultTitle" aria-hidden="true" hidden>
   <div class="modal-card ranked-result-modal">
     <h2 class="modal-title" id="rankedResultTitle">Konfirmasi Hasil Peringkat</h2>
@@ -7470,6 +7475,8 @@ function authSetError(msg) {
 }
 
 function showAuthView() {
+  stopAutoCleanup();
+  if (isSpectator) handleExitSpectator();
   if (_rankedClient) _rankedClient.stop();
   if (_rankedUI) _rankedUI.close();
   setLayoutFloatingVisible(true);
@@ -7487,6 +7494,7 @@ function showAuthView() {
 
 function showAdminView() {
   if (!hasAdminAccess()) return false;
+  startAutoCleanup();
   myUid = window.firebase.authUid;
   myNickname = '👑 Admin';
   myUsername = ADMIN_USERNAME;
@@ -7651,10 +7659,7 @@ function finishLogin({ name, username }) {
   } catch (e) {}
   myNickname = username;   // display name in-game = login USERNAME
   myUsername = username;
-  // Auto-cleanup room tidak aktif TIDAK dijalankan pemain biasa lagi: rules
-  // sekarang hanya mengizinkan host (atau admin) menghapus room, jadi panggilan
-  // ini hanya akan menghasilkan PERMISSION_DENIED berulang. Pembersihan
-  // dilakukan lewat tombol "Bersihkan" di panel admin.
+  startAutoCleanup();
   // Lock the nickname field to the logged-in USERNAME (read-only).
   const ni = document.getElementById('nicknameInput');
   if (ni) {
@@ -7680,6 +7685,8 @@ function finishLogin({ name, username }) {
 }
 
 function doLogout() {
+  stopAutoCleanup();
+  if (isSpectator) handleExitSpectator();
   if (_rankedClient) _rankedClient.stop();
   if (_rankedUI) _rankedUI.close();
   clearAdminSession();
@@ -7849,71 +7856,41 @@ async function adminSpectateRoom(code) {
   setTimeout(() => { if (hasAdminAccess()) handleSpectateRoom(); }, 100);
 }
 
-// =============== Auto-cleanup room tidak aktif ===============
-// Rule: room dihapus kalau (a) tidak ada human player sama sekali,
-// atau (b) semua human player tidak heartbeat selama > INACTIVE_THRESHOLD_MS.
-const INACTIVE_THRESHOLD_MS = 5 * 60 * 1000; // 5 menit
-const CLEANUP_INTERVAL_MS = 60 * 1000;        // jalan tiap 1 menit
-let _cleanupInFlight = false;
-let _cleanupTimer = null;
-
-async function cleanupInactiveRooms(thresholdMs = INACTIVE_THRESHOLD_MS) {
-  if (!hasAdminAccess()) return { checked: 0, deleted: 0, deletedCodes: [], skipped: true };
-  if (_cleanupInFlight) return { skipped: true };
-  _cleanupInFlight = true;
-  let checked = 0, deleted = 0, deletedCodes = [];
-  try {
-    const snap = await fb.get(fb.ref(fb.db, 'rooms'));
-    if (!snap.exists()) return { checked: 0, deleted: 0, deletedCodes };
-    const rooms = snap.val();
-    const now = serverNow();
-    for (const [code, room] of Object.entries(rooms)) {
-      if (!hasAdminAccess()) break;
-      checked++;
-      // Grace period untuk room baru dibuat (60 detik)
-      const createdAt = room.createdAt || 0;
-      if (createdAt > 0 && (now - createdAt) < 60_000) continue;
-      // Jangan hapus room yang sedang spectator-only? Kalau ga ada player, ga ada game.
-      const humans = Object.values(room.players || {}).filter(p => p && !p.isBot);
-      let reason = null;
-      if (humans.length === 0) {
-        reason = 'no-humans';
-      } else {
-        const allStale = humans.every(p => {
-          const ls = typeof p.lastSeen === 'number' ? p.lastSeen : 0;
-          return ls > 0 && (now - ls) > thresholdMs;
-        });
-        if (allStale) reason = 'all-stale';
+// Expiry is checked against server presence again by database rules.
+let _roomCleaner = null;
+function getRoomCleaner() {
+  if (!_roomCleaner) _roomCleaner = RoomLifecycle.create(fb, {
+    now: serverNow,
+    error: error => console.warn('Room cleanup:', error.code || error.message),
+  });
+  return _roomCleaner;
+}
+function startAutoCleanup() { getRoomCleaner().start(); }
+function stopAutoCleanup() { if (_roomCleaner) _roomCleaner.stop(); }
+async function cleanupInactiveRooms() {
+  const result = {checked: 0, deleted: 0, deletedCodes: []};
+  if (!fb.authUid) return {...result, skipped: true};
+  const snap = await fb.get(fb.ref(fb.db, 'rooms'));
+  for (const [code, room] of Object.entries(snap.val() || {})) {
+    if (!fb.authUid) break;
+    result.checked++;
+    try {
+      if (RoomLifecycle.expired(room, serverNow())) {
+        await fb.remove(fb.ref(fb.db, 'rooms/' + code));
+        result.deleted++; result.deletedCodes.push(code);
+      } else if (RoomLifecycle.needsMarker(room, serverNow())) {
+        await fb.set(fb.ref(fb.db, 'rooms/' + code + '/emptySince'), fb.serverTimestamp());
       }
-      if (reason) {
-        try {
-          await fb.remove(fb.ref(fb.db, 'rooms/' + code));
-          deleted++;
-          deletedCodes.push(code);
-          console.log(`[cleanup] dihapus room ${code} (${reason})`);
-        } catch (e) {
-          console.warn(`[cleanup] gagal hapus ${code}:`, e.message);
-        }
-      }
+    } catch (error) {
+      if (!String(error.code || error.message).toLowerCase().includes('permission')) console.warn('Room cleanup:', error.code || error.message);
     }
-    if (deleted > 0) console.log(`[cleanup] ${deleted}/${checked} room dihapus`);
-    return { checked, deleted, deletedCodes };
-  } catch (e) {
-    console.warn('[cleanup] error:', e.message);
-    return { checked, deleted, deletedCodes };
-  } finally {
-    _cleanupInFlight = false;
   }
+  return result;
 }
-
-function startAutoCleanup() {
-  if (_cleanupTimer) return;
-  // Run sekali di startup setelah delay singkat agar tidak block UI awal
-  setTimeout(() => { cleanupInactiveRooms().catch(() => {}); }, 8_000);
-  _cleanupTimer = setInterval(() => {
-    cleanupInactiveRooms().catch(() => {});
-  }, CLEANUP_INTERVAL_MS);
-}
+window.addEventListener('firebase-identity-changed', () => {
+  stopAutoCleanup();
+  if (isSpectator) handleExitSpectator();
+});
 
 async function adminDeleteRoom(code) {
   if (!hasAdminAccess()) return;
@@ -8510,18 +8487,18 @@ function clearSavedRoom() {
 
 // Register the onDisconnect action for my player node.
 // mode 'presence' (lobby): mark disconnected without orphaning the seat index.
-// mode 'keep'   (in-game): cancel any onDisconnect — the seat is kept intact so
-//   the host's 30s heartbeat check decides when to hand it to a bot (grace period).
+// mode 'keep' (in-game): retain the seat and record the server disconnect time.
+// The host still controls the existing grace period before a bot takes over.
 let onDisconnectMode = null;
 async function setupOnDisconnect(roomCode, mode) {
   if (onDisconnectMode === mode) return;
   onDisconnectMode = mode;
   const pref = fb.ref(fb.db, `rooms/${roomCode}/players/${myUid}`);
   try { await fb.onDisconnect(pref).cancel(); } catch (e) {}
-  if (mode === 'presence') {
-    await fb.onDisconnect(pref).update({ lastSeen: 0, disconnected: true, disconnectedAt: fb.serverTimestamp() });
-  }
-  // mode 'keep': nothing registered — disconnect leaves the entry untouched.
+  await fb.onDisconnect(pref).update(mode === 'presence'
+    ? { lastSeen: 0, disconnected: true, disconnectedAt: fb.serverTimestamp() }
+    : { disconnectedAt: fb.serverTimestamp() });
+  // Keep the seat and hand; the server records when the connection is lost.
 }
 
 async function attemptAutoRejoin() {
@@ -9422,6 +9399,8 @@ function attachListeners() {
   if (ckMute) ckMute.onclick = () => Voice.toggleMute();
   const ckLeave = document.getElementById('remiVoiceLeaveBtn');
   if (ckLeave) ckLeave.onclick = () => Voice.leave();
+  const spectatorExitBtn = document.getElementById('spectatorExitBtn');
+  if (spectatorExitBtn) spectatorExitBtn.onclick = handleExitSpectator;
   const remiLeaveBtn = document.getElementById('remiLeaveBtn');
   if (remiLeaveBtn) remiLeaveBtn.onclick = () => {
     if (isSpectator) handleExitSpectator();
@@ -10063,7 +10042,7 @@ let heartbeatTimer = null;
 function startHeartbeat() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   heartbeatTimer = setInterval(async () => {
-    if (!currentRoom) return;
+    if (!currentRoom || isSpectator) return;
     try {
       // Each beat: refresh lastSeen AND clear any disconnect flags —
       // this is what makes a reconnecting player automatically reclaim their seat.
@@ -10120,6 +10099,7 @@ async function loadSpectateRoomList() {
     const rooms = snap.exists() ? snap.val() : {};
     // Hanya Remi yang sedang berlangsung (bukan lobby, bukan selesai)
     const list = Object.values(rooms).filter(r => {
+      if (RoomLifecycle.expired(r, serverNow())) return false;
       if ((r.game || 'truf') !== 'remi') return false;
       const phase = r.phase || 'lobby';
       return phase !== 'lobby' && !phase.includes('end');
@@ -10195,6 +10175,11 @@ async function handleSpectateRoom() {
       return;
     }
     const room = snap.val();
+    if (RoomLifecycle.expired(room, serverNow())) {
+      getRoomCleaner().scan();
+      showLobbyStatus('Room sudah tidak aktif dan sedang ditutup.', 'warn');
+      return;
+    }
     if (room.game !== 'remi') {
       showLobbyStatus('Spectator pilot hanya untuk REMI', 'error');
       return;
@@ -10205,6 +10190,8 @@ async function handleSpectateRoom() {
     }
     // Sukses → masuk spectator mode
     isSpectator = true;
+    stopHeartbeat();
+    document.getElementById('spectatorExitBtn').hidden = false;
     currentRoom = code;
     // Set ke kursi 0 sebagai posisi viewpoint (south); CSS spectator-mode menyembunyikan hand.
     // Privacy: hand seat 0 tidak dirender karena class .spectator-mode hide #remiMyHand.
@@ -10219,6 +10206,7 @@ async function handleSpectateRoom() {
     const roomRef = fb.ref(fb.db, 'rooms/' + code);
     if (roomUnsubscribe) { roomUnsubscribe(); roomUnsubscribe = null; }
     roomUnsubscribe = fb.onValue(roomRef, s => {
+      if (!isSpectator || currentRoom !== code) return;
       if (!s.exists()) {
         showGameToast('Room sudah ditutup', 'warn', 4000);
         handleExitSpectator();
@@ -10282,6 +10270,13 @@ function onSpectatorRoomUpdate(room) {
 }
 
 function handleExitSpectator() {
+  const returnToAdmin = _spectatorOrigin === 'admin' && hasAdminAccess();
+  document.getElementById('spectatorExitBtn').hidden = true;
+  stopHeartbeat();
+  stopCountdownTicker();
+  clearGameHistoryGuard();
+  closeSpectateRoomsModal();
+  if (_rankedClient) _rankedClient.observe(null);
   document.getElementById('hostControlBtn').classList.add('hidden');
   closeHostControl();
   isSpectator = false;
@@ -10294,11 +10289,25 @@ function handleExitSpectator() {
   const remiGV = document.getElementById('remiGameView');
   if (remiGV) {
     remiGV.classList.remove('show');
-    remiGV.classList.remove('spectator-mode');
+    remiGV.classList.remove('spectator-mode', 'remi-paused');
+    remiGV.classList.add('hidden');
+    remiGV.style.display = '';
   }
+  document.querySelectorAll('[id^="remi"][id$="Modal"], #scoreEditModal, #scoreApprovalModal, #chatModal, #logModal').forEach(el => {
+    el.classList.remove('show');
+    el.style.pointerEvents = ''; el.style.zIndex = ''; el.style.display = '';
+    el.querySelectorAll('button').forEach(button => { button.style.pointerEvents = ''; });
+  });
   ['remiEndModal','remiTournamentEndModal','remiPickupModal'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.remove('show');
+    hideRemiOverlay(document.getElementById(id));
+  });
+  _remiStandingsOpen = false;
+  _remiLbOpen = false;
+  const leaderboardPanel = document.getElementById('leaderboardPanel');
+  if (leaderboardPanel) leaderboardPanel.style.display = 'none';
+  document.querySelectorAll('.remi-close-video-wrap').forEach(el => {
+    el.querySelectorAll('video,audio').forEach(media => { media.pause(); });
+    el.remove();
   });
   // Hide chat panel
   const chatPanel = document.getElementById('chatPanel');
@@ -10315,7 +10324,11 @@ function handleExitSpectator() {
     const el = document.getElementById(id);
     if (el) el.classList.add('hidden');
   });
-  if (_spectatorOrigin === 'admin') {
+  setLayoutFloatingVisible(true);
+  Sound.playBgm(null);
+  Sound.stopWin();
+  if (typeof routerClearRoomUrl === 'function') routerClearRoomUrl(currentGameType || 'remi');
+  if (returnToAdmin) {
     // Kembali ke admin panel
     showAdminView();
   } else {

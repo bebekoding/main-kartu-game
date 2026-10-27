@@ -71,6 +71,10 @@
     ],
     "headers": [
       {
+        "source": "/room-lifecycle.js",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+      },
+      {
         "source": "/ranked-*.js",
         "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
       },
