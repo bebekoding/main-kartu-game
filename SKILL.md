@@ -203,9 +203,11 @@ Setiap interactive component punya:
 
 ## 10. ADMIN
 
-- Admin shortcut: username `__admin__` + password `MAINKARTU2025` → langsung ke `showAdminView()`
-- Admin panel: tab Room Aktif (live + auto-refresh 5s) dan tab Pengguna
-- Admin bisa spectate, hapus room, manual cleanup
+- Admin memakai akun Firebase Authentication khusus yang sudah ada. Jangan simpan password/hash admin di kode atau dokumentasi.
+- Hak admin terikat UID di `config/adminUid`, provider password, email akun khusus, dan batas waktu `config/adminAuthAfter`.
+- Konfigurasi UID dan batas waktu hanya diubah lewat akses pemilik project, bukan oleh browser. `adminSessions` lama tidak memberi izin.
+- Admin panel: tab Room Aktif dan Pengguna, tombol Ganti Password, spectate, hapus room, manual cleanup.
+- Mengganti password admin memakai Firebase Auth; tidak ada hash tambahan yang harus disamakan.
 
 ---
 

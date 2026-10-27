@@ -1,3 +1,5 @@
+> Pembaruan keamanan 27 Oktober 2026: mekanisme admin lama dalam handoff ini sudah diganti. Ikuti [ADMIN_SECURITY.md](ADMIN_SECURITY.md); jangan gunakan hash challenge atau password contoh lama.
+
 # Main Kartu — Ringkasan Project & Catatan untuk v4.3.3
 
 ---
@@ -42,7 +44,7 @@
 
 ### Fitur Cross-Game
 - **Auth system** — login/register dengan username+password
-- **Admin panel** — akses via `__admin__` / `MAINKARTU2025`
+- **Admin panel** — akses via `__admin__` / `[REMOVED: kredensial admin lama]`
 - **Bot AI** — 4 level kesulitan (Easy/Medium/Hard/Insane), 7 nama bot
 - **Voice chat** — WebRTC peer-to-peer mesh
 - **Live chat** — text chat real-time per room

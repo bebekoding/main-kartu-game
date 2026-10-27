@@ -77,4 +77,5 @@ const reserved = 'host|players|seats|membershipVersion|hostRequests|phase|gameSt
 room.$gameState = {'.write': `${valid} && !$gameState.matches(/^(${reserved})$/) && ${member}`};
 require('./card-schema.cjs')(room, `${valid} && ${member}`);
 rules.rules.rooms.$roomCode = room;
+require('./admin-policy.cjs')(rules);
 fs.writeFileSync(file, JSON.stringify(rules,null,2)+'\n');

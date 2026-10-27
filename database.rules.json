@@ -5,7 +5,7 @@
     "rooms": {
       ".read": true,
       "$roomCode": {
-        ".write": "auth != null && auth.token.firebase.sign_in_provider === 'password' && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && ((!data.exists() && newData.child('host').val() === auth.uid) || (!newData.exists() && (data.child('host').val() === auth.uid || root.child('adminSessions').child(auth.uid).exists())))",
+        ".write": "auth != null && auth.token.firebase.sign_in_provider === 'password' && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && ((!data.exists() && newData.child('host').val() === auth.uid) || (!newData.exists() && (data.child('host').val() === auth.uid || (auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('config/adminUid').val() && auth.token.email === '__admin__@mainkartu.local' && root.child('config/adminAuthAfter').isNumber() && auth.token.auth_time >= root.child('config/adminAuthAfter').val()))))",
         ".validate": "newData.child('membershipVersion').val() === 2 && newData.child('maxPlayers').isNumber() && newData.child('maxPlayers').val() >= 3 && newData.child('maxPlayers').val() <= 6 && (!newData.child('seats/0').exists() || (0 < newData.child('maxPlayers').val() && newData.child('players').child(newData.child('seats/0').val()).child('seat').val() === 0)) && (!newData.child('seats/1').exists() || (1 < newData.child('maxPlayers').val() && newData.child('players').child(newData.child('seats/1').val()).child('seat').val() === 1)) && (!newData.child('seats/2').exists() || (2 < newData.child('maxPlayers').val() && newData.child('players').child(newData.child('seats/2').val()).child('seat').val() === 2)) && (!newData.child('seats/3').exists() || (3 < newData.child('maxPlayers').val() && newData.child('players').child(newData.child('seats/3').val()).child('seat').val() === 3)) && (!newData.child('seats/4').exists() || (4 < newData.child('maxPlayers').val() && newData.child('players').child(newData.child('seats/4').val()).child('seat').val() === 4)) && (!newData.child('seats/5').exists() || (5 < newData.child('maxPlayers').val() && newData.child('players').child(newData.child('seats/5').val()).child('seat').val() === 5)) && (!data.child('seats/0').exists() || !newData.child('players').child(data.child('seats/0').val()).exists() || newData.child('seats').child(newData.child('players').child(data.child('seats/0').val()).child('seat').val() + '').val() === data.child('seats/0').val()) && (!data.child('seats/1').exists() || !newData.child('players').child(data.child('seats/1').val()).exists() || newData.child('seats').child(newData.child('players').child(data.child('seats/1').val()).child('seat').val() + '').val() === data.child('seats/1').val()) && (!data.child('seats/2').exists() || !newData.child('players').child(data.child('seats/2').val()).exists() || newData.child('seats').child(newData.child('players').child(data.child('seats/2').val()).child('seat').val() + '').val() === data.child('seats/2').val()) && (!data.child('seats/3').exists() || !newData.child('players').child(data.child('seats/3').val()).exists() || newData.child('seats').child(newData.child('players').child(data.child('seats/3').val()).child('seat').val() + '').val() === data.child('seats/3').val()) && (!data.child('seats/4').exists() || !newData.child('players').child(data.child('seats/4').val()).exists() || newData.child('seats').child(newData.child('players').child(data.child('seats/4').val()).child('seat').val() + '').val() === data.child('seats/4').val()) && (!data.child('seats/5').exists() || !newData.child('players').child(data.child('seats/5').val()).exists() || newData.child('seats').child(newData.child('players').child(data.child('seats/5').val()).child('seat').val() + '').val() === data.child('seats/5').val()) && (!data.exists() || newData.child('host').val() === data.child('host').val() || !newData.child('hostRequests').exists())",
         "membershipVersion": {
           ".write": "auth != null && auth.token.firebase.sign_in_provider === 'password' && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && root.child('rooms').child($roomCode).child('host').val() === auth.uid",
@@ -64,12 +64,12 @@
         },
         "chat": {
           "$msgId": {
-            ".write": "auth != null && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && (!data.exists() || root.child('adminSessions').child(auth.uid).exists())"
+            ".write": "auth != null && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && (!data.exists() || (auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('config/adminUid').val() && auth.token.email === '__admin__@mainkartu.local' && root.child('config/adminAuthAfter').isNumber() && auth.token.auth_time >= root.child('config/adminAuthAfter').val()))"
           }
         },
         "voice": {
           "$voiceUid": {
-            ".write": "auth != null && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && ($voiceUid === auth.uid || root.child('adminSessions').child(auth.uid).exists())"
+            ".write": "auth != null && $roomCode.matches(/^[A-Z0-9]{4,6}$/) && ($voiceUid === auth.uid || (auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('config/adminUid').val() && auth.token.email === '__admin__@mainkartu.local' && root.child('config/adminAuthAfter').isNumber() && auth.token.auth_time >= root.child('config/adminAuthAfter').val()))"
           }
         },
         "signals": {
@@ -763,10 +763,10 @@
     "accounts": {
       ".read": "auth != null",
       "$username": {
-        ".write": "auth != null && ( (!data.exists() && newData.child('authUid').val() === auth.uid) || data.child('authUid').val() === auth.uid || root.child('adminSessions').child(auth.uid).exists() )",
+        ".write": "auth != null && ( (!data.exists() && newData.child('authUid').val() === auth.uid) || data.child('authUid').val() === auth.uid || (auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('config/adminUid').val() && auth.token.email === '__admin__@mainkartu.local' && root.child('config/adminAuthAfter').isNumber() && auth.token.auth_time >= root.child('config/adminAuthAfter').val()) )",
         ".validate": "!newData.hasChild('password')",
         "authUid": {
-          ".validate": "newData.val() === auth.uid || root.child('adminSessions').child(auth.uid).exists()"
+          ".validate": "newData.val() === auth.uid || (auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('config/adminUid').val() && auth.token.email === '__admin__@mainkartu.local' && root.child('config/adminAuthAfter').isNumber() && auth.token.auth_time >= root.child('config/adminAuthAfter').val())"
         }
       }
     },
@@ -775,7 +775,7 @@
       "$game": {
         ".validate": "$game.matches(/^(truf|cangkul|remi|tebak)$/)",
         "$username": {
-          ".write": "auth != null && ( root.child('adminSessions').child(auth.uid).exists() || root.child('rooms').child(newData.child('srcRoom').val()).child('host').val() === auth.uid )",
+          ".write": "auth != null && ( (auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('config/adminUid').val() && auth.token.email === '__admin__@mainkartu.local' && root.child('config/adminAuthAfter').isNumber() && auth.token.auth_time >= root.child('config/adminAuthAfter').val()) || root.child('rooms').child(newData.child('srcRoom').val()).child('host').val() === auth.uid )",
           ".validate": "!newData.exists() || ( newData.child('matches').val() === (data.exists() ? data.child('matches').val() : 0) + 1 && (newData.child('points').val() - (data.exists() ? data.child('points').val() : 0)) <= 11 && (newData.child('points').val() - (data.exists() ? data.child('points').val() : 0)) >= 0 )"
         }
       }
@@ -784,13 +784,19 @@
       "adminHash": {
         ".read": false,
         ".write": false
+      },
+      "adminUid": {
+        ".read": "(auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('config/adminUid').val() && auth.token.email === '__admin__@mainkartu.local' && root.child('config/adminAuthAfter').isNumber() && auth.token.auth_time >= root.child('config/adminAuthAfter').val())",
+        ".write": false
+      },
+      "adminAuthAfter": {
+        ".read": false,
+        ".write": false
       }
     },
     "adminSessions": {
-      "$authUid": {
-        ".read": "auth != null && auth.uid === $authUid",
-        ".write": "auth != null && auth.uid === $authUid && ( !newData.exists() || newData.child('hash').val() === root.child('config/adminHash').val() )"
-      }
+      ".read": false,
+      ".write": false
     }
   }
 }

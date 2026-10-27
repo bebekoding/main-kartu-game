@@ -89,8 +89,12 @@
     // supaya kegagalan jaringan tidak membuat aplikasi menggantung tanpa start.
     if (user && user.isAnonymous) signOut(auth).catch(() => {});
     const real = (user && !user.isAnonymous) ? user : null;
+    const previousUid = window.firebase.authUid;
     window.firebase.authUid = real ? real.uid : null;
     window.firebase.currentUser = real;
+    if (bootstrapped && previousUid !== window.firebase.authUid) {
+      window.dispatchEvent(new Event('firebase-identity-changed'));
+    }
     if (!bootstrapped) {
       bootstrapped = true;
       window.dispatchEvent(new Event('firebase-ready'));
@@ -237,6 +241,7 @@
     text-transform: uppercase;
   }
   .card-box .back-row { margin: -8px 0 16px; display: flex; }
+  #adminView .back-row { justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
   .card-box .link-btn {
     background: rgba(244,234,213,0.06);
     border: 1px solid rgba(212,168,75,0.45);
@@ -5452,9 +5457,9 @@
     </div>
   </div>
 
-  <!-- ADMIN PANEL — secret access -->
+  <!-- ADMIN PANEL: authorization is enforced by Firebase rules -->
   <div class="card-box hidden" id="adminView">
-    <div class="back-row"><button class="link-btn" id="adminBackBtn">← Keluar Admin</button></div>
+    <div class="back-row"><button class="link-btn" id="adminBackBtn">← Keluar Admin</button><button class="link-btn" id="adminChangePwBtn">Ganti Password</button></div>
     <h2>👑 Admin Panel</h2>
     <div class="admin-tabs">
       <button class="admin-tab active" data-tab="rooms">🎮 Room Aktif</button>
@@ -7238,44 +7243,65 @@ const Voice = (function () {
 // INIT (wait for Firebase ready)
 // ============================================================
 // ============================================================
-// AUTH — login / register / admin
-// Admin credentials verified via RTDB rules hash-challenge.
-// Salt is public; hash lives in /config/adminHash (rules: .read false).
-// See docs/RINGKASAN-v4.3.3.md → "Admin auth via rules-challenge".
+// AUTH: administrator permission is bound to the server-managed Auth UID.
+// No password hash or database session grants administrator permissions.
 // ============================================================
 const ADMIN_USERNAME = '__admin__';
-const ADMIN_SALT = 'mk-admin-salt-2026';
+let _adminAccessUid = null;
+let _adminAccessUnsubscribe = null;
+let _adminAccessGeneration = 0;
 
-async function sha256Hex(str) {
-  const buf = new TextEncoder().encode(str);
-  const digest = await crypto.subtle.digest('SHA-256', buf);
-  return Array.from(new Uint8Array(digest))
-    .map(b => b.toString(16).padStart(2, '0')).join('');
+function hasAdminAccess() {
+  const fb = window.firebase;
+  return !!(fb && _adminAccessUid && fb.authUid === _adminAccessUid &&
+    fb.currentUser && fb.currentUser.uid === _adminAccessUid &&
+    fb.currentUser.email === authEmailFor(ADMIN_USERNAME));
 }
 
-// Verify the admin password by writing a hash-challenge to RTDB.
-// Rules only accept the write when hash === /config/adminHash, so a wrong
-// password comes back as PERMISSION_DENIED and never reveals the real hash.
-//
-// The record is written at /adminSessions/{auth.uid} and KEPT for the session:
-// it doubles as the admin capability that the rules check before allowing
-// privileged operations (deleting other people's rooms, editing accounts).
-// It is removed on disconnect and on logout so it cannot outlive the session.
-async function verifyAdminPassword(password) {
+function revokeAdminAccess() {
+  const wasAdminSpectating = isSpectator && _spectatorOrigin === 'admin';
+  clearAdminSession();
+  if (_spectatorOrigin === 'admin') _spectatorOrigin = null;
+  if (wasAdminSpectating) {
+    _spectatorOrigin = 'lobby';
+    handleExitSpectator();
+  }
+  showAuthView();
+  authSetError('Sesi admin berubah. Silakan masuk kembali.');
+}
+
+async function verifyAdminAccess() {
+  clearAdminSession();
   const fb = window.firebase;
-  if (!fb || !fb.authUid) return false;
+  const uid = fb && fb.authUid;
+  const generation = _adminAccessGeneration;
+  if (!uid || !fb.currentUser || fb.currentUser.uid !== uid ||
+      fb.currentUser.email !== authEmailFor(ADMIN_USERNAME)) return false;
+  const identityUnchanged = () => generation === _adminAccessGeneration &&
+    fb.authUid === uid && fb.currentUser && fb.currentUser.uid === uid &&
+    fb.currentUser.email === authEmailFor(ADMIN_USERNAME);
   try {
-    const hash = await sha256Hex(ADMIN_SALT + ':' + password);
-    const sessRef = fb.ref(fb.db, `adminSessions/${fb.authUid}`);
-    await fb.set(sessRef, { hash, ts: fb.serverTimestamp() });
-    // Drop the capability automatically if this client goes away.
-    try { fb.onDisconnect(sessRef).remove(); } catch (e) {}
-    return true;
+    const ref = fb.ref(fb.db, 'config/adminUid');
+    const snap = await fb.get(ref);
+    if (!identityUnchanged() || !snap.exists() || snap.val() !== uid) return false;
+    _adminAccessUid = uid;
+    const unsubscribe = fb.onValue(ref, current => {
+      if (!identityUnchanged()) return;
+      if (!current.exists() || current.val() !== uid) revokeAdminAccess();
+    }, () => {
+      if (identityUnchanged()) revokeAdminAccess();
+    });
+    if (!identityUnchanged()) { unsubscribe(); return false; }
+    _adminAccessUnsubscribe = unsubscribe;
+    return identityUnchanged() && hasAdminAccess();
   } catch (e) {
-    // PERMISSION_DENIED from rules = wrong password
+    if (identityUnchanged()) clearAdminSession();
     return false;
   }
 }
+window.addEventListener('firebase-identity-changed', () => {
+  if (_adminAccessUid && !hasAdminAccess()) revokeAdminAccess();
+});
 
 // ============================================================
 // GANTI PASSWORD
@@ -7381,11 +7407,20 @@ async function submitChangePw() {
   }
 }
 
-// Drop the admin capability (logout / leaving the admin panel).
+// Clear only local UI authorization. Server rules independently check every
+// privileged write; no client-created capability survives logout or revocation.
 function clearAdminSession() {
-  const fb = window.firebase;
-  if (!fb || !fb.authUid) return;
-  try { fb.remove(fb.ref(fb.db, `adminSessions/${fb.authUid}`)).catch(() => {}); } catch (e) {}
+  _adminAccessGeneration++;
+  _adminAccessUid = null;
+  if (_adminAccessUnsubscribe) {
+    try { _adminAccessUnsubscribe(); } catch (e) {}
+    _adminAccessUnsubscribe = null;
+  }
+  stopAdminRoomsAutoRefresh();
+  for (const id of ['adminRoomList','adminUserList']) {
+    const el = document.getElementById(id);
+    if (el) setSafeHTML(el, '');
+  }
 }
 
 function authSetError(msg) {
@@ -7410,11 +7445,10 @@ function showAuthView() {
 }
 
 function showAdminView() {
-  // Admin shortcut login tidak lewat finishLogin — set nickname manual supaya
-  // fitur seperti spectator/chat punya nama yang valid. Identity (myUid) tetap
-  // auth uid dari init(); jangan ditimpa, rules memakainya untuk cek capability.
-  if (!myNickname) myNickname = '👑 Admin';
-  if (!myUsername) myUsername = '__admin__';
+  if (!hasAdminAccess()) return false;
+  myUid = window.firebase.authUid;
+  myNickname = '👑 Admin';
+  myUsername = ADMIN_USERNAME;
   document.getElementById('authView').classList.add('hidden');
   document.getElementById('gameSelectView').classList.add('hidden');
   document.getElementById('lobbyView').classList.add('hidden');
@@ -7491,6 +7525,7 @@ async function doRegister() {
   if (!password) { authSetError('Password tidak boleh kosong'); return; }
   if (password.length < 8) { authSetError('Password minimal 8 karakter'); return; }
   const key = sanitizeKey(username.toLowerCase());
+  if (key === ADMIN_USERNAME) { authSetError('Username tidak tersedia'); return; }
   try {
     // Keunikan username ditegakkan oleh Firebase Auth: email sintetisnya
     // bentrok kalau username sudah dipakai. Tidak perlu (dan tidak boleh)
@@ -7517,14 +7552,14 @@ async function doLogin() {
   const password = (document.getElementById('loginPassword').value || '').trim();
   authSetError('');
   if (!username || !password) { authSetError('Username dan password harus diisi'); return; }
-  // Admin: masuk sebagai akun Firebase Auth dulu supaya punya auth.uid, baru
-  // klaim capability admin lewat rules challenge (hash, bukan password mentah).
+  // Firebase Authentication verifies the password; RTDB verifies the fixed
+  // administrator UID, password sign-in provider and session cutoff.
   if (username === ADMIN_USERNAME) {
     try {
       const cred = await fb.signIn(authEmailFor(ADMIN_USERNAME), password);
       myUid = cred.user.uid;
     } catch (e) { authSetError(LOGIN_FAIL_MSG); return; }
-    if (await verifyAdminPassword(password)) { showAdminView(); return; }
+    if (await verifyAdminAccess()) { showAdminView(); return; }
     authSetError(LOGIN_FAIL_MSG);
     return;
   }
@@ -7617,11 +7652,14 @@ function doLogout() {
 }
 
 async function loadAdminUserList() {
+  if (!hasAdminAccess()) return;
+  const generation = _adminAccessGeneration;
   const el = document.getElementById('adminUserList');
   if (!el) return;
   setSafeHTML(el, '<div style="color:rgba(244,234,213,0.5);font-family:\'JetBrains Mono\',monospace;font-size:11px;padding:8px;">Memuat data...</div>');
   try {
     const snap = await fb.get(fb.ref(fb.db, 'accounts'));
+    if (!hasAdminAccess() || generation !== _adminAccessGeneration) return;
     if (!snap.exists()) { setSafeHTML(el, '<div style="color:rgba(244,234,213,0.5);font-size:11px;padding:8px;">Belum ada pengguna terdaftar.</div>'); return; }
     const accounts = snap.val();
     const rows = Object.values(accounts).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
@@ -7676,6 +7714,8 @@ function phaseClass(phase) {
 }
 
 async function loadAdminRoomList() {
+  if (!hasAdminAccess()) return;
+  const generation = _adminAccessGeneration;
   const el = document.getElementById('adminRoomList');
   if (!el) return;
   if (!el._initialized) {
@@ -7684,6 +7724,7 @@ async function loadAdminRoomList() {
   }
   try {
     const snap = await fb.get(fb.ref(fb.db, 'rooms'));
+    if (!hasAdminAccess() || generation !== _adminAccessGeneration) return;
     if (!snap.exists()) {
       setSafeHTML(el, '<div class="admin-room-empty">Tidak ada room aktif</div>');
       return;
@@ -7750,6 +7791,7 @@ async function loadAdminRoomList() {
 }
 
 async function adminSpectateRoom(code) {
+  if (!hasAdminAccess()) return;
   if (!code) return;
   // Tandai origin = admin agar exit kembali ke admin panel
   _spectatorOrigin = 'admin';
@@ -7760,7 +7802,7 @@ async function adminSpectateRoom(code) {
   setGameType('remi');
   document.getElementById('lobbyView').classList.remove('hidden');
   // Delay sedikit agar UI siap, lalu auto-trigger spectate
-  setTimeout(() => handleSpectateRoom(), 100);
+  setTimeout(() => { if (hasAdminAccess()) handleSpectateRoom(); }, 100);
 }
 
 // =============== Auto-cleanup room tidak aktif ===============
@@ -7772,6 +7814,7 @@ let _cleanupInFlight = false;
 let _cleanupTimer = null;
 
 async function cleanupInactiveRooms(thresholdMs = INACTIVE_THRESHOLD_MS) {
+  if (!hasAdminAccess()) return { checked: 0, deleted: 0, deletedCodes: [], skipped: true };
   if (_cleanupInFlight) return { skipped: true };
   _cleanupInFlight = true;
   let checked = 0, deleted = 0, deletedCodes = [];
@@ -7781,6 +7824,7 @@ async function cleanupInactiveRooms(thresholdMs = INACTIVE_THRESHOLD_MS) {
     const rooms = snap.val();
     const now = serverNow();
     for (const [code, room] of Object.entries(rooms)) {
+      if (!hasAdminAccess()) break;
       checked++;
       // Grace period untuk room baru dibuat (60 detik)
       const createdAt = room.createdAt || 0;
@@ -7828,6 +7872,7 @@ function startAutoCleanup() {
 }
 
 async function adminDeleteRoom(code) {
+  if (!hasAdminAccess()) return;
   if (!code) return;
   if (!confirm(`Hapus room ${code}? Semua pemain di room akan diputus.`)) return;
   try {
@@ -8143,7 +8188,7 @@ async function rejectScoreEdit() {
   } catch (e) { console.error('reject score edit failed', e); }
 }
 
-function initAuth() {
+async function initAuth() {
   // Wire auth buttons
   document.getElementById('loginBtn').onclick = doLogin;
   document.getElementById('registerBtn').onclick = doRegister;
@@ -8168,6 +8213,7 @@ function initAuth() {
     };
   }
   document.getElementById('adminBackBtn').onclick = doLogout;
+  document.getElementById('adminChangePwBtn').onclick = showVoluntaryPasswordChange;
   document.getElementById('logoutBtn').onclick = doLogout;
   // Ganti password
   const cpSubmit = document.getElementById('changePwSubmitBtn');
@@ -8187,6 +8233,17 @@ function initAuth() {
   ['regName','regUsername','regPassword'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
   });
+
+  // Restore administrator UI only from the authenticated account and a fresh
+  // permission check. localStorage never grants or restores the admin role.
+  if (window.firebase && window.firebase.authUid && window.firebase.currentUser &&
+      window.firebase.currentUser.email === authEmailFor(ADMIN_USERNAME)) {
+    myUid = window.firebase.authUid;
+    if (await verifyAdminAccess()) { showAdminView(); return; }
+    showAuthView();
+    authSetError('Silakan masuk ulang untuk membuka panel admin.');
+    return;
+  }
 
   // Pemulihan sesi: yang menentukan adalah status Firebase Auth, bukan isi
   // localStorage. Blob mk_session hanya dipakai untuk nama tampilan supaya
@@ -8265,7 +8322,7 @@ function init() {
   } catch (e) {}
 
   // Attempt to silently rejoin a room this tab was in before a refresh
-  attemptAutoRejoin();
+  if (!fb.currentUser || fb.currentUser.email !== authEmailFor(ADMIN_USERNAME)) attemptAutoRejoin();
 
   // Init authentication (shows login screen if no saved session)
   initAuth();
