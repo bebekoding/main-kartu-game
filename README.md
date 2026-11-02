@@ -29,10 +29,10 @@ firebase deploy --only database --project truf-e3256
 
 ## Persiapan V4.4
 
-Baseline terakhir `46df17f`. Game kelima yang dipilih adalah **Capsa Banting (4 pemain)**; aturan sedang menunggu verifikasi pengguna dan game belum diimplementasikan.
+Baseline terakhir `46df17f`. Game kelima bernama **Capsa (4 pemain)**, memakai mekanisme Banting. Arah giliran bergantian per ronde mulai searah jarum jam; timer 15 detik per giliran. Detail aturan sedang dilengkapi dan game belum diimplementasikan.
 
 - [Handoff lengkap menuju V4.4](docs/RINGKASAN-v4.4.md): perubahan, keputusan, batasan, PR dan rencana integrasi.
-- [Draft aturan Capsa Banting](docs/CAPSA_RULES_DRAFT.md): hasil riset beserta variasi yang perlu dipilih.
+- [Draft aturan Capsa](docs/CAPSA_RULES_DRAFT.md): hasil riset dan penyesuaian pengguna beserta detail yang perlu dipilih.
 
 ## Dokumentasi
 
