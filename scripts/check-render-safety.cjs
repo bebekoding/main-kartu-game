@@ -36,7 +36,7 @@ if (require.main === module) {
   const rankedUI=path.join(__dirname,'../ranked-ui.js');
   if(fs.existsSync(rankedUI))failures.push(...check('<script>'+fs.readFileSync(rankedUI,'utf8')+'</script>'));
   failures.push(...check('<script>'+fs.readFileSync(path.join(__dirname,'../remi-celebration.js'),'utf8')+'</script>'));
-  for(const file of ['room-saves.js','room-save-ui.js','player-profiles.js','profile-ui.js'])failures.push(...check('<script>'+fs.readFileSync(path.join(__dirname,'..',file),'utf8')+'</script>'));
+  for(const file of ['room-saves.js','room-save-ui.js','player-profiles.js','profile-ui.js','online-players.js'])failures.push(...check('<script>'+fs.readFileSync(path.join(__dirname,'..',file),'utf8')+'</script>'));
   if (failures.length) { console.error(failures.join('\n')); process.exitCode=1; }
   else console.log('All inline scripts parse; no unfiltered HTML writes.');
 }

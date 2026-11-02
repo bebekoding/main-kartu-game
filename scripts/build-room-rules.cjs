@@ -82,4 +82,5 @@ require('./leaderboard-policy.cjs')(rules, room);
 require('./room-lifecycle-policy.cjs')(room);
 require('./room-save-policy.cjs')(room);
 require('./profile-policy.cjs')(rules);
+require('./online-policy.cjs')(rules);
 fs.writeFileSync(file, JSON.stringify(rules,null,2)+'\n');

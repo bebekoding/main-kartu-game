@@ -26,6 +26,7 @@
 <script src="/game-display.js?v=1"></script>
 <script src="/player-profiles.js?v=1"></script>
 <script src="/profile-ui.js?v=1"></script>
+<script src="/online-players.js?v=1"></script>
 <script src="/room-membership.js?v=3"></script>
 <script src="/room-lifecycle.js?v=1"></script>
 <script src="/room-saves.js?v=1"></script>
@@ -5491,6 +5492,7 @@
   .profile-actions { display: flex; gap: 10px; margin-top: 20px; }
   .profile-actions .btn { flex: 1; min-width: 0; width: auto; min-height: 44px; padding: 12px; font-family: var(--font-sans); text-transform: none; letter-spacing: 0; }
   @media (max-width:700px) { .profile-card { padding: 22px 18px; } .profile-card .modal-title { font-size: 25px; } .profile-icon-grid { gap: 6px; } .profile-icon-choice { min-height: 84px; } .profile-icon-choice .player-avatar { width: 46px; height: 46px; flex-basis: 46px; } .profile-player-name .player-avatar { width: 22px; height: 22px; flex-basis: 22px; } }
+  .online-player-count { margin: -6px 0 18px; color: var(--green); font: 500 14px/1.5 var(--font-sans); text-align: center; }
 </style>
 </head>
 <body>
@@ -5589,6 +5591,7 @@
   <!-- View: Game selection (very first screen) -->
   <div class="card-box hidden" id="gameSelectView">
     <h2 class="gs-heading">Pilih Permainan</h2>
+    <p class="online-player-count" data-online-count role="status" aria-live="polite">Memuat pemain online...</p>
     <button class="profile-open-button" data-profile-open type="button" hidden>Profil</button>
     <button class="btn saved-games-link" data-saved-games type="button">Game tersimpan</button>
     <div class="game-options">
@@ -5638,6 +5641,7 @@
       <button class="link-btn hidden" data-ranked-pending type="button">Hasil peringkat</button>
     </div>
     <h2 id="lobbyHeading" class="lobby-heading">Lobby</h2>
+    <p class="online-player-count" data-online-count role="status" aria-live="polite">Memuat pemain online...</p>
     <button class="profile-open-button" data-profile-open type="button" hidden>Profil</button>
     <button class="btn saved-games-link" data-saved-games type="button">Game tersimpan</button>
 
@@ -6589,6 +6593,17 @@ let fb = null;
 let myUid = null;
 let myNickname = '';
 let myUsername = '';  // login username — used for cross-game leaderboards
+let _onlinePlayers = null;
+function startOnlinePlayers() {
+  if (!_onlinePlayers) _onlinePlayers = OnlinePlayers.create(fb, {
+    now: serverNow,
+    render: count => document.querySelectorAll('[data-online-count]').forEach(el => {
+      const text = count == null ? 'Menghubungkan status pemain online...' : count + ' pemain sedang online';
+      if (el.textContent !== text) el.textContent = text;
+    }),
+  });
+  _onlinePlayers.start();
+}
 let _profileController = null;
 let _profileRankGame = null;
 function getProfileController() {
@@ -7686,6 +7701,7 @@ function authSetError(msg) {
 }
 
 function showAuthView() {
+  if (_onlinePlayers) _onlinePlayers.stop();
   if (_profileController) _profileController.stop();
   if (_roomSaveClient) _roomSaveClient.reset();
   stopRemiCelebration();
@@ -7865,6 +7881,7 @@ async function doLogin() {
 }
 
 function finishLogin({ name, username }) {
+  startOnlinePlayers();
   getRankedClient().start();
   // Identitas (myUid) = uid Firebase Auth. Sesi login dijaga Firebase sendiri;
   // blob di localStorage hanya menyimpan profil tampilan, bukan kredensial.
@@ -7901,6 +7918,7 @@ function finishLogin({ name, username }) {
 }
 
 function doLogout() {
+  if (_onlinePlayers) _onlinePlayers.stop();
   stopAutoCleanup();
   if (isSpectator) handleExitSpectator();
   if (_rankedClient) _rankedClient.stop();
@@ -8154,6 +8172,7 @@ async function preserveRankedResultBeforeReset(room) {
 }
 window.addEventListener('firebase-identity-changed', () => {
   if (_profileController) _profileController.stop();
+  if (_onlinePlayers) _onlinePlayers.stop();
   if (_rankedClient) _rankedClient.stop();
   if (_rankedUI) _rankedUI.close();
 });
