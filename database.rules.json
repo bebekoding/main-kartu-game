@@ -1018,6 +1018,25 @@
           ".validate": false
         }
       }
+    },
+    "profiles": {
+      ".read": "auth != null && auth.token.firebase.sign_in_provider === 'password'",
+      "$uid": {
+        ".write": "auth != null && auth.token.firebase.sign_in_provider === 'password' && $uid === auth.uid && newData.exists()",
+        ".validate": "newData.hasChildren(['displayName','avatarId','updatedAt'])",
+        "displayName": {
+          ".validate": "newData.isString() && newData.val().matches(/^[!-~]{4,16}$/)"
+        },
+        "avatarId": {
+          ".validate": "newData.isString() && newData.val().matches(/^(konoha|uchiha|sharingan|shuriken|strawhat|heart|whitebeard|redhair|scout|garrison|military|cadet|dragonball|flame|blueeye|reaper)$/)"
+        },
+        "updatedAt": {
+          ".validate": "newData.isNumber() && newData.val() === now"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
     }
   }
 }

@@ -33,6 +33,7 @@ function setup(names=[]) {
     setSafeHTML:(node,text)=>node.textContent=text,
     stopAdminRoomsAutoRefresh:()=>state.stopped++,startAdminRoomsAutoRefresh:()=>{},
     startAutoCleanup:()=>{},stopAutoCleanup:()=>{},
+    getProfileController:()=>({start:()=>{},stop:()=>{}}),
     showAuthView:()=>state.authVisible=true,
     authSetError:msg=>state.error=msg,
     loadAdminRoomList:()=>state.adminLoads++,loadAdminUserList:()=>state.adminLoads++,

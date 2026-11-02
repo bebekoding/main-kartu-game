@@ -71,6 +71,10 @@
     ],
     "headers": [
       {
+        "source": "/{player-profiles,profile-ui}.js",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+      },
+      {
         "source": "/room-save*.js",
         "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
       },

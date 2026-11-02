@@ -155,7 +155,7 @@
       const body=doc.getElementById('savedGamesList');body.replaceChildren(el('p','saved-game-help','Memuat game tersimpan...'));
       try{
         const snap=await fb.get(ref('rooms'));if(!listOpen||disposed)return;
-        const entries=Object.entries(snap.val()||{}).map(([code,r])=>({...r,code})).filter(r=>Saves.listed(r,uid(),now())).sort((a,b)=>b.savedGame.lastAccessAt-a.savedGame.lastAccessAt);
+        const entries=Object.entries(snap.val()||{}).map(([code,r])=>options.decorateRoom?options.decorateRoom({...r,code}):({...r,code})).filter(r=>Saves.listed(r,uid(),now())).sort((a,b)=>b.savedGame.lastAccessAt-a.savedGame.lastAccessAt);
         body.replaceChildren();
         if(!entries.length)body.append(el('p','saved-game-help','Belum ada game tersimpan. Saat bermain, pilih Simpan game untuk melanjutkannya nanti.'));
         for(const r of entries){

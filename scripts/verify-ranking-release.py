@@ -21,6 +21,8 @@ checks=[(route,'truf-multiplayer-v3.html') for route in ['/','/truf','/remi','/c
 checks += [(f'/{file}?v=3',file) for file in ['ranked-leaderboard.js','ranked-client.js','ranked-ui.js','room-membership.js']]
 checks += [('/room-lifecycle.js?v=1','room-lifecycle.js')]
 checks += [(f'/{file}?v=1',file) for file in ['room-saves.js','room-save-ui.js']]
+checks += [(f'/{file}?v=1',file) for file in ['player-profiles.js','profile-ui.js']]
+checks += [('/assets/avatars/anime-emblems-v1.png','assets/avatars/anime-emblems-v1.png','immutable')]
 checks += [('/remi-celebration.js?v=1','remi-celebration.js')]
 checks += [('/close-celebration.m4a?v=1','close-celebration.m4a','immutable')]
 def verify(pair):

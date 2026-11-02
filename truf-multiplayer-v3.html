@@ -24,6 +24,8 @@
 <!-- Firebase SDK (modular v10) -->
 <script src="/vendor/dompurify/purify.min.js?v=3.4.17"></script>
 <script src="/game-display.js?v=1"></script>
+<script src="/player-profiles.js?v=1"></script>
+<script src="/profile-ui.js?v=1"></script>
 <script src="/room-membership.js?v=3"></script>
 <script src="/room-lifecycle.js?v=1"></script>
 <script src="/room-saves.js?v=1"></script>
@@ -5437,6 +5439,58 @@
   .save-game-button { width: auto; min-height: 44px; white-space: nowrap; }
   .saved-game-actions .btn:focus-visible, .saved-games-link:focus-visible, .save-game-button:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 3px; }
   @media (max-width: 700px) { .saved-game-card { padding: 22px 18px; } .saved-game-card .modal-title { font-size: 25px; line-height: 1.2; } }
+  /* Curated profile avatars share one transparent image atlas. */
+  .player-avatar { display: inline-block; flex: 0 0 28px; width: 28px; height: 28px; vertical-align: middle; background-image: url('/assets/avatars/anime-emblems-v1.png'); background-size: 400% 400%; background-repeat: no-repeat; }
+  .avatar-konoha { background-position: 0.000000% 0.000000%; }
+  .avatar-uchiha { background-position: 33.333333% 0.000000%; }
+  .avatar-sharingan { background-position: 66.666667% 0.000000%; }
+  .avatar-shuriken { background-position: 100.000000% 0.000000%; }
+  .avatar-strawhat { background-position: 0.000000% 33.333333%; }
+  .avatar-heart { background-position: 33.333333% 33.333333%; }
+  .avatar-whitebeard { background-position: 66.666667% 33.333333%; }
+  .avatar-redhair { background-position: 100.000000% 33.333333%; }
+  .avatar-scout { background-position: 0.000000% 66.666667%; }
+  .avatar-garrison { background-position: 33.333333% 66.666667%; }
+  .avatar-military { background-position: 66.666667% 66.666667%; }
+  .avatar-cadet { background-position: 100.000000% 66.666667%; }
+  .avatar-dragonball { background-position: 0.000000% 100.000000%; }
+  .avatar-flame { background-position: 33.333333% 100.000000%; }
+  .avatar-blueeye { background-position: 66.666667% 100.000000%; }
+  .avatar-reaper { background-position: 100.000000% 100.000000%; }
+  .profile-player-name { display: flex; align-items: center; justify-content: center; gap: 6px; overflow-wrap: anywhere; }
+  .seat-name.profile-player-name, .rank-name.profile-player-name { justify-content: flex-start; }
+  .profile-open-button { display: flex; align-items: center; gap: 10px; width: 100%; margin: 0 0 16px; padding: 10px 14px; min-height: 52px; color: var(--cream); background: var(--felt-dark); border: 1px solid rgba(212,168,75,.5); border-radius: var(--radius-panel); font: 600 15px var(--font-sans); text-align: left; cursor: pointer; }
+  .profile-open-button > span:not(.player-avatar) { flex: 1; overflow-wrap: anywhere; }
+  .profile-open-button small { color: var(--gold-bright); font: 500 13px var(--font-sans); }
+  .profile-open-button:hover { border-color: var(--gold-bright); background: var(--felt); }
+  [data-profile-open][hidden], #profileModal[hidden] { display: none !important; }
+  #profileModal { z-index: 10090; padding: 16px; }
+  .profile-card { width: min(100%, 540px); max-height: 90dvh; overflow-y: auto; text-align: left; }
+  .profile-card .modal-title { text-align: center; }
+  .profile-preview { display: flex; align-items: center; gap: 14px; margin: 12px 0 20px; font: 700 19px var(--font-sans); overflow-wrap: anywhere; }
+  .profile-preview .player-avatar { width: 64px; height: 64px; flex-basis: 64px; }
+  .profile-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 8px; font: 600 14px var(--font-sans); color: var(--cream); }
+  .profile-label small { font: 400 12px var(--font-mono); }
+  #profileNameInput { box-sizing: border-box; width: 100%; min-height: 46px; padding: 12px 16px; border: 1px solid var(--gold); border-radius: var(--radius-control); color: var(--cream); background: var(--felt-dark); font: 500 17px var(--font-sans); }
+  #profileNameInput[aria-invalid="true"] { border-color: #ffb4ab; }
+  .profile-help { margin: 8px 0 12px; font: 400 13px/1.5 var(--font-sans); color: var(--cream); opacity: .87; overflow-wrap: anywhere; }
+  .profile-icon-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 20px; }
+  .profile-icon-heading h3 { margin: 0; font: 700 16px var(--font-sans); }
+  .profile-icon-heading .link-btn { min-height: 44px; padding: 8px 12px; border: 1px solid rgba(212,168,75,.4); border-radius: var(--radius-control); background: var(--felt-dark); color: var(--gold-bright); font: 500 13px var(--font-sans); cursor: pointer; }
+  .profile-icon-groups { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 14px; }
+  .profile-filter { border: 1px solid rgba(212,168,75,.35); border-radius: var(--radius-control); padding: 8px 10px; min-height: 44px; background: var(--felt-dark); color: var(--cream); font: 500 12px var(--font-sans); cursor: pointer; }
+  .profile-filter[aria-pressed="true"] { border-color: var(--gold-bright); color: var(--gold-bright); }
+  .profile-icon-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; }
+  .profile-icon-choice { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 10px 4px; min-height: 92px; border: 1.5px solid transparent; border-radius: var(--radius-control); background: var(--felt-dark); color: var(--cream); cursor: pointer; font: 400 11px/1.3 var(--font-sans); }
+  .profile-icon-choice .player-avatar { width: 54px; height: 54px; flex-basis: 54px; }
+  .profile-icon-choice[aria-pressed="true"] { border-color: var(--gold-bright); background-color: var(--felt-light); }
+  .profile-icon-choice:hover { border-color: var(--gold); }
+  .profile-open-button:focus-visible, .profile-card button:focus-visible, #profileNameInput:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 3px; }
+  .profile-error { color: #ffb4ab; font: 400 14px/1.5 var(--font-sans); margin: 12px 0; }
+  .profile-error:empty { display: none; }
+  .profile-actions { display: flex; gap: 10px; margin-top: 20px; }
+  .profile-actions .btn { flex: 1; min-width: 0; width: auto; min-height: 44px; padding: 12px; font-family: var(--font-sans); text-transform: none; letter-spacing: 0; }
+  @media (max-width:700px) { .profile-card { padding: 22px 18px; } .profile-card .modal-title { font-size: 25px; } .profile-icon-grid { gap: 6px; } .profile-icon-choice { min-height: 84px; } .profile-icon-choice .player-avatar { width: 46px; height: 46px; flex-basis: 46px; } .profile-player-name .player-avatar { width: 22px; height: 22px; flex-basis: 22px; } }
 </style>
 </head>
 <body>
@@ -5513,6 +5567,7 @@
   <div class="card-box hidden" id="adminView">
     <div class="back-row"><button class="link-btn" id="adminBackBtn">← Keluar Admin</button><button class="link-btn" id="adminChangePwBtn">Ganti Password</button></div>
     <h2>👑 Admin Panel</h2>
+    <button class="profile-open-button" data-profile-open type="button" hidden>Profil</button>
     <div class="admin-tabs">
       <button class="admin-tab active" data-tab="rooms">🎮 Room Aktif</button>
       <button class="admin-tab" data-tab="users">👥 Pengguna</button>
@@ -5534,6 +5589,7 @@
   <!-- View: Game selection (very first screen) -->
   <div class="card-box hidden" id="gameSelectView">
     <h2 class="gs-heading">Pilih Permainan</h2>
+    <button class="profile-open-button" data-profile-open type="button" hidden>Profil</button>
     <button class="btn saved-games-link" data-saved-games type="button">Game tersimpan</button>
     <div class="game-options">
       <button class="game-option" data-game="truf">
@@ -5582,6 +5638,7 @@
       <button class="link-btn hidden" data-ranked-pending type="button">Hasil peringkat</button>
     </div>
     <h2 id="lobbyHeading" class="lobby-heading">Lobby</h2>
+    <button class="profile-open-button" data-profile-open type="button" hidden>Profil</button>
     <button class="btn saved-games-link" data-saved-games type="button">Game tersimpan</button>
 
     <div id="configError" class="firebase-error hidden">
@@ -5591,8 +5648,8 @@
 
     <div id="lobbyForm">
       <div class="form-group">
-        <label for="nicknameInput">Username (otomatis dari akun)</label>
-        <input type="text" id="nicknameInput" maxlength="20" placeholder="Nama tampilan Anda" autocomplete="off">
+        <label for="nicknameInput">Nama profil</label>
+        <input type="text" id="nicknameInput" maxlength="20" placeholder="Ubah melalui Profil" autocomplete="off">
       </div>
 
       <button class="btn primary" id="createRoomBtn">Buat Room Baru</button>
@@ -5700,6 +5757,25 @@
 
 <!-- Game toast: disconnect / reconnect notifications visible to all players -->
 <div id="gameToast" class="game-toast"></div>
+
+<div class="modal-overlay" id="profileModal" role="dialog" aria-modal="true" aria-labelledby="profileTitle" aria-hidden="true" hidden>
+  <form class="modal-card profile-card" id="profileForm">
+    <h2 class="modal-title" id="profileTitle">Profil pemain</h2>
+    <div id="profilePreview" class="profile-preview"></div>
+    <label class="profile-label" for="profileNameInput">Username profil <small id="profileNameCount">0/16</small></label>
+    <input id="profileNameInput" type="text" minlength="4" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="profileNameHint" required>
+    <p class="profile-help" id="profileNameHint">4–16 karakter, tanpa spasi.</p>
+    <p class="profile-help" id="profileLoginName"></p>
+    <div class="profile-icon-heading"><h3>Pilih ikon</h3><button class="link-btn" id="profileRandomBtn" type="button">Acak pilihan</button></div>
+    <div class="profile-icon-groups" id="profileIconGroups" aria-label="Kategori ikon"></div>
+    <div class="profile-icon-grid" id="profileIconGrid"></div>
+    <p class="profile-error" id="profileError" role="alert"></p>
+    <div class="profile-actions">
+      <button class="btn primary" id="profileSaveBtn" type="submit">Simpan profil</button>
+      <button class="btn" id="profileCancelBtn" type="button">Batal</button>
+    </div>
+  </form>
+</div>
 
 <div class="modal-overlay" id="savedGameModal" role="dialog" aria-modal="true" aria-labelledby="savedGameTitle" hidden></div>
 <div class="modal-overlay" id="savedGamesListModal" role="dialog" aria-modal="true" aria-labelledby="savedGamesListTitle" hidden>
@@ -6513,6 +6589,38 @@ let fb = null;
 let myUid = null;
 let myNickname = '';
 let myUsername = '';  // login username — used for cross-game leaderboards
+let _profileController = null;
+let _profileRankGame = null;
+function getProfileController() {
+  if (!_profileController) _profileController = ProfileUI.create(fb, {
+    uid: () => myUid, loginName: () => myUsername,
+    fallbackName: () => myUsername === ADMIN_USERNAME ? 'Admin' : (myUsername || myNickname),
+    saved: () => showGameToast('Profil berhasil disimpan', 'good', 3500),
+    changed: profiles => {
+      myNickname = PlayerProfiles.nameFor({uid:myUid,nickname:myUsername === ADMIN_USERNAME ? 'Admin' : (myUsername || myNickname)}, profiles);
+      const input = document.getElementById('nicknameInput');
+      if (input) input.value = myNickname;
+      if (_lastRoom) {
+        _lastRoom = profileRoom(_lastRoom);
+        const room = _lastRoom;
+        if (room.savedGame) getRoomSaveClient().observe(room);
+        else if (room.phase === 'lobby') renderRoom(room);
+        else if (room.game === 'remi') { scheduleRemiRender(room); renderRemiEndModal(room); renderRemiTournamentEnd(room); renderRemiPause(room); }
+        else if (room.game === 'cangkul') renderCangkulGameView(room);
+        else if (room.game === 'tebak') scheduleTebakRender(room);
+        else renderGameView(room);
+        renderLeaderboard(room);
+      }
+      if (_profileRankGame && document.getElementById('rankModal').classList.contains('show')) openRankModal(_profileRankGame);
+    },
+  });
+  return _profileController;
+}
+function profileRoom(room) {
+  const decorated = PlayerProfiles.decorateRoom(room, _profileController ? _profileController.profiles : {});
+  if (myUid && decorated?.players?.[myUid]?.isBot === false) myNickname = decorated.players[myUid].nickname;
+  return decorated;
+}
 let mySeat = null;     // 0..3 (my seat in the lobby)
 let currentRoom = null;
 let roomUnsubscribe = null;
@@ -6523,6 +6631,7 @@ let _roomSaveEpoch = 0;
 function getRoomSaveClient() {
   if (!_roomSaveClient) _roomSaveClient = RoomSaveUI.create(fb, {
     uid: () => myUid, now: serverNow, spectator: () => isSpectator,
+    decorateRoom: profileRoom,
     error: message => showGameToast(message, 'warn', 6000),
     enter: room => {
       setGameType(room.game || 'truf');
@@ -7577,6 +7686,7 @@ function authSetError(msg) {
 }
 
 function showAuthView() {
+  if (_profileController) _profileController.stop();
   if (_roomSaveClient) _roomSaveClient.reset();
   stopRemiCelebration();
   stopAutoCleanup();
@@ -7602,6 +7712,7 @@ function showAdminView() {
   myUid = window.firebase.authUid;
   myNickname = '👑 Admin';
   myUsername = ADMIN_USERNAME;
+  getProfileController().start();
   document.getElementById('authView').classList.add('hidden');
   document.getElementById('gameSelectView').classList.add('hidden');
   document.getElementById('lobbyView').classList.add('hidden');
@@ -7763,15 +7874,16 @@ function finishLogin({ name, username }) {
   } catch (e) {}
   myNickname = username;   // display name in-game = login USERNAME
   myUsername = username;
+  getProfileController().start();
   startAutoCleanup();
   // Lock the nickname field to the logged-in USERNAME (read-only).
   const ni = document.getElementById('nicknameInput');
   if (ni) {
-    ni.value = username;
+    ni.value = myNickname;
     ni.readOnly = true;
     ni.style.opacity = '0.75';
     ni.style.cursor = 'not-allowed';
-    ni.title = 'Username otomatis dari akun login Anda';
+    ni.title = 'Ubah nama tampilan melalui Profil';
   }
   // Hide auth, show either the deep-linked lobby or the game-select page.
   document.getElementById('authView').classList.add('hidden');
@@ -8041,12 +8153,14 @@ async function preserveRankedResultBeforeReset(room) {
   }
 }
 window.addEventListener('firebase-identity-changed', () => {
+  if (_profileController) _profileController.stop();
   if (_rankedClient) _rankedClient.stop();
   if (_rankedUI) _rankedUI.close();
 });
 
 // Open the rank modal for a given game and render sorted standings.
 async function openRankModal(game) {
+  _profileRankGame = game;
   const modal = document.getElementById('rankModal');
   const body = document.getElementById('rankModalBody');
   const title = document.getElementById('rankModalTitle');
@@ -8067,12 +8181,15 @@ async function openRankModal(game) {
     const rankSort = (game === 'remi')
       ? (a, b) => (b.score - a.score) || (b.matches - a.matches)
       : (a, b) => b.score - a.score;
-    const rows = Object.values(data).map(u => {
+    const rows = (await Promise.all(Object.entries(data).map(async ([key,u]) => {
+      let uid = u.authUid || null;
+      if (!uid) try { uid = (await fb.get(fb.ref(fb.db, 'accounts/' + key))).val()?.authUid || null; } catch (e) {}
       const matches = u.matches || 0;
       const points = u.points || 0;
       const score = matches > 0 ? (points / matches) : 0;
-      return { name: u.name || u.username, username: u.username, matches, points, score };
-    }).filter(u => u.matches > 0)
+      const name = PlayerProfiles.nameFor({uid,name:u.name,username:u.username}, getProfileController().profiles);
+      return { name, uid, username: u.username, matches, points, score };
+    }))).filter(u => u.matches > 0)
       .sort(rankSort);
     if (rows.length === 0) {
       setSafeHTML(body, '<div style="text-align:center;color:rgba(244,234,213,0.55);font-family:var(--font-sans);font-size:13px;padding:24px;">Belum ada data peringkat</div>');
@@ -8086,7 +8203,7 @@ async function openRankModal(game) {
         const mine = (r.username && myUsername && r.username.toLowerCase() === myUsername.toLowerCase());
         return `<div class="rank-row${mine ? ' rank-mine' : ''}">
           <span class="rank-pos">${medal}</span>
-          <span class="rank-name">${escapeHtml(r.name)}</span>
+          <span class="rank-name" data-profile-uid="${escapeHtml(r.uid || '')}">${escapeHtml(r.name)}</span>
           <span>${r.matches}</span>
           <span>${r.points}</span>
           <span class="rank-score">${r.score.toFixed(2)}</span>
@@ -8382,6 +8499,7 @@ function init() {
   applyLayoutMode(getLayoutMode());
   attachListeners();
   getRoomSaveClient();
+  getProfileController();
   setupAudioControls();
   preloadCardArt();    // warm browser cache for J/Q/K images so first reveal is instant
 
@@ -9870,7 +9988,7 @@ function enterRoomView(code) {
       handleForceLeaveRoom();
       return;
     }
-    const room = {...snap.val(), code};
+    const room = profileRoom({...snap.val(), code});
 
     // Detect my seat (needed for game view orientation)
     if (room.players && room.players[myUid]) {
@@ -10068,7 +10186,7 @@ function renderRoom(room) {
     let inner = `
       <div class="seat-status"></div>
       <div class="seat-info">
-        <div class="seat-name">${seatPickable ? 'Pilih kursi ini' : seatName}</div>
+        <div class="seat-name" data-profile-uid="${p ? escapeHtml(p.uid) : ''}">${seatPickable ? 'Pilih kursi ini' : seatName}</div>
         <div class="seat-label">Kursi ${i + 1}${p && p.uid === myUid ? ' · ANDA' : ''}${p && p.isBot ? ' · BOT' : ''}${p && p.uid === room.host ? ' · HOST' : ''}</div>
       </div>
     `;
@@ -10350,7 +10468,7 @@ async function handleSpectateRoom() {
         handleExitSpectator();
         return;
       }
-      const r = s.val();
+      const r = profileRoom(s.val());
       _lastRoom = r;
       onSpectatorRoomUpdate(r);
     });
@@ -11295,7 +11413,7 @@ function renderRemiPlayerPanel(el, player, handCount, isTurn, score, rank, total
   const babelHtml = babuLabel ? `<div class="babu-title">${babuLabel}</div>` : '';
   setSafeHTML(el, `
     ${babelHtml}
-    <div class="player-name">${escapeHtml(player.nickname)}${speakerIcon}</div>
+    <div class="player-name" data-profile-uid="${escapeHtml(player.uid)}">${escapeHtml(player.nickname)}${speakerIcon}</div>
     <div class="player-meta">Kursi ${player.seat + 1}${statusTag}</div>
     <div class="player-mini-cards">${cardsHtml}</div>
     <div class="player-meta" style="margin-top:4px">${handCount} kartu</div>
@@ -11450,6 +11568,7 @@ function renderRemiGameView(room) {
       const sStreak = ((c.babuStreak || {})[mySeat] != null ? (c.babuStreak || {})[mySeat] : ((c.babuStreak || {})[String(mySeat)] || 0));
       const selfBabu = sAbadi ? '👑💀 BABU ABADI' : (sStreak >= 4 ? '💀 BABU SEJATI' : '');
       setSafeHTML(selfEl, (selfBabu ? `<span class="babu-title" style="margin:0 8px 0 0;">${selfBabu}</span>` : '') +
+        `<span data-profile-uid="${escapeHtml((playersBySeat[mySeat] || {}).uid || '')}">${escapeHtml((playersBySeat[mySeat] || {}).nickname || '')}</span>` +
         `<span><span class="si-lbl">Skor</span><span class="si-val ${myScore < 0 ? 'neg' : ''}">${myScore > 0 ? '+' : ''}${myScore}</span></span>` +
         `<span><span class="si-lbl">Rank</span><span class="si-val">${myRank != null ? myRank : '—'}</span></span>`);
     }
@@ -14114,6 +14233,7 @@ function renderRemiTournamentEnd(room) {
   const totals = room.totals || {};
   const players = Object.values(room.players || {});
   const rows = players.map(p => ({
+    uid: p.uid,
     name: p.nickname,
     total: (totals[p.seat] != null ? totals[p.seat] : (totals[String(p.seat)] || 0)),
     isMe: p.uid === myUid,
@@ -14126,7 +14246,7 @@ function renderRemiTournamentEnd(room) {
     else icon = '💀';
     return `<div class="standings-row${r.isMe ? ' me' : ''}">` +
       `<span class="st-rank">${icon}</span>` +
-      `<span class="st-name">${escapeHtml(r.name)}</span>` +
+      `<span class="st-name" data-profile-uid="${escapeHtml(r.uid)}">${escapeHtml(r.name)}</span>` +
       `<span class="st-score">${r.total}</span>` +
       `<span class="st-unit">poin</span>` +
       `</div>`;
@@ -16206,6 +16326,7 @@ function renderCangkulStandings(room) {
   const players = Object.values(room.players || {});
   if (!players.length) { setSafeHTML(el, ''); return; }
   const rows = players.map(p => ({
+    uid: p.uid,
     name: p.nickname,
     total: (totals[p.seat] != null ? totals[p.seat] : totals[String(p.seat)]) || 0,
     isMe: p.uid === myUid,
@@ -16216,7 +16337,7 @@ function renderCangkulStandings(room) {
                 (idx === rows.length - 1 && rows.length > 1) ? 'lb-last' : '';
     return `<div class="lb-row ${cls}">` +
       `<span class="lb-rank">${idx + 1}.</span>` +
-      `<span class="lb-name ${r.isMe ? 'me' : ''}">${escapeHtml(r.name)}</span>` +
+      `<span class="lb-name ${r.isMe ? 'me' : ''}" data-profile-uid="${escapeHtml(r.uid)}">${escapeHtml(r.name)}</span>` +
       `<span class="lb-score">${r.total}</span></div>`;
   }).join(''));
 }
@@ -16264,7 +16385,7 @@ function renderCangkulGameView(room) {
     let cardsHtml = '';
     for (let i = 0; i < Math.min(handArr.length, 14); i++) cardsHtml += '<div class="mini-back"></div>';
     setSafeHTML(el, `
-      <div class="cangkul-other-name">${escapeHtml(p.nickname)}</div>
+      <div class="cangkul-other-name" data-profile-uid="${escapeHtml(p.uid)}">${escapeHtml(p.nickname)}</div>
       <div class="cangkul-other-meta">Kursi ${p.seat + 1}${p.isBot ? ' · BOT' : ''}${isOut ? ' · KELUAR' : ''}</div>
       <div class="cangkul-other-cards">${cardsHtml}</div>
       <div class="cangkul-other-meta" style="margin-top:6px">${handArr.length} kartu</div>
@@ -16327,7 +16448,7 @@ function renderCangkulGameView(room) {
     else bannerHtml = `Giliran Anda — tidak punya ${SUIT_SYMBOLS[leadSuit] || leadSuit}, harus cangkul`;
   } else {
     const cp = playersBySeat[currentPlayer];
-    bannerHtml = cp ? `Giliran ${cp.nickname}…` : 'Menunggu pemain…';
+    bannerHtml = cp ? `Giliran ${escapeHtml(cp.nickname)}…` : 'Menunggu pemain…';
   }
   // Joker restriction reminder
   if (pending) {
@@ -18493,6 +18614,7 @@ function renderSeat(pos, absSeat, player, room, isTurn) {
 
   card.classList.remove('is-me', 'is-bot', 'is-disconnected', 'is-turn');
   if (!player) {
+    delete nameEl.dataset.profileUid;
     nameEl.textContent = '[Slot Kosong]';
     if (roleEl) roleEl.textContent = '';
     statsEl.textContent = '';
@@ -18501,6 +18623,7 @@ function renderSeat(pos, absSeat, player, room, isTurn) {
   }
 
   nameEl.textContent = player.nickname;
+  nameEl.dataset.profileUid = player.uid;
   if (pos === 'south') card.classList.add('is-me');
   if (player.isBot) card.classList.add('is-bot');
   if (player.disconnected || player.disconnectedAt) card.classList.add('is-disconnected');
@@ -18981,7 +19104,7 @@ function renderTebakGameView(room) {
     let backs = '';
     for (let i = 0; i < previewCount; i++) backs += '<div class="opp-card-back"></div>';
     setSafeHTML(div, `
-      <div class="opp-name">${escapeHtml(p.nickname)}</div>
+      <div class="opp-name" data-profile-uid="${escapeHtml(p.uid)}">${escapeHtml(p.nickname)}</div>
       <div class="opp-meta">Kursi ${s + 1}${p.isBot ? ' · BOT' : ''}</div>
       <div class="opp-cards-preview">${backs}</div>
       <div class="opp-cards-count">${hand.length} kartu</div>
@@ -19042,7 +19165,7 @@ function renderTebakGameView(room) {
   try { TurnReminder.set(isMyTurn && myHand.length > 0 && room.phase === 'playing'); } catch (e) {}
   if (selfEl) {
     setSafeHTML(selfEl, `
-      <span><b>${escapeHtml((playersBySeat[mySeat] || {}).nickname || '—')}</b></span>
+      <span data-profile-uid="${escapeHtml((playersBySeat[mySeat] || {}).uid || '')}"><b>${escapeHtml((playersBySeat[mySeat] || {}).nickname || '—')}</b></span>
       <span>Kartu: ${myHand.length}</span>
       <span style="color:#6fcf97;font-weight:700;">Jadi: ${myJadi.length}</span>
       ${isMyTurn ? '<span style="color:var(--gold-bright);">🎯 Giliranmu!</span>' : ''}
