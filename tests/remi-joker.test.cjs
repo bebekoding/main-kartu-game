@@ -7,7 +7,7 @@ const run=(ranks,suit='D')=>ranks.map(rank=>card(rank,suit));
 const names=['isValidDasar','isValidPararel','isPureRemiCombo','findOneDasarInHand','findOnePararelInHand','findAllDasarsInHand','pendingPickupCardsInHand','tryJokerSubstitutedCombo','canDeepestFormCombo','enumerateOneJokerCandidates','bestJokerExtension','findAllJokerAwareCombos','remiCardValue','remiRankValue','comboTotalValue','handleRemiPickupDiscard','handleRemiLayDown','handleRemiDiscard','maybeResolveRemiRound','openRemiPickupModal'];
 function source(name){for(const {ast,code}of parsed){const n=ast.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name===name);if(n)return code.slice(n.start,n.end);}throw Error(name);}
 function harness(extra={}){
-  const errors=[],env={mySeat:0,MAX_PLAYERS:4,myUid:'p0',currentRoom:'ABCD',_remiDrawInFlight:false,_remiGlowTurn:0,remiResolveScheduled:false,
+  const errors=[],env={_roomSaveEpoch:0,mySeat:0,MAX_PLAYERS:4,myUid:'p0',currentRoom:'ABCD',_remiDrawInFlight:false,_remiGlowTurn:0,remiResolveScheduled:false,
     remiSelectedIndices:new Set(),remiCekiExpanded:false,Sound:{cardReveal:()=>{},cardDrop:()=>{}},
     console:{log:()=>{},warn:()=>{},error:(...args)=>errors.push(args.map(String).join(' '))},...extra};
   vm.createContext(env);vm.runInContext("const REMI_RANK_NUM={ '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,J:11,Q:12,K:13,A:14 };\n"+names.map(source).join('\n'),env);

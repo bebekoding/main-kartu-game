@@ -62,8 +62,9 @@ test('in-game onDisconnect records server time without deleting a hand or ending
   assert.deepEqual(JSON.parse(JSON.stringify(writes)),[{ref:'rooms/ABCD/players/p',data:{disconnectedAt:{'.sv':'timestamp'}}}]);
 });
 test('actual heartbeat never writes a spectator into the player list',async()=>{
-  let tick;const writes=[],context=vm.createContext({heartbeatTimer:null,currentRoom:'ABCD',isSpectator:true,myUid:'viewer',PRESENCE_HEARTBEAT_MS:5000,
+  let tick;const writes=[],context=vm.createContext({_lastRoom:null,heartbeatTimer:null,currentRoom:'ABCD',isSpectator:true,myUid:'viewer',PRESENCE_HEARTBEAT_MS:5000,
     setInterval:fn=>{tick=fn;return 1;},clearInterval:()=>{},fb:{db:{},ref:(_,p)=>p,serverTimestamp:()=>({'.sv':'timestamp'}),update:async(...args)=>writes.push(args)}});
   vm.runInContext(actual('startHeartbeat'),context);context.startHeartbeat();await tick();assert.equal(writes.length,0);
-  context.isSpectator=false;await tick();assert.equal(writes.length,1);assert.equal(writes[0][0],'rooms/ABCD/players/viewer');
+  context.isSpectator=false;await tick();assert.equal(writes.length,1);assert.equal(writes[0][0],'rooms/ABCD');
+  assert.deepEqual(JSON.parse(JSON.stringify(writes[0][1])),{'players/viewer/lastSeen':{'.sv':'timestamp'},'players/viewer/disconnected':null,'players/viewer/disconnectedAt':null});
 });

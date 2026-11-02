@@ -4,7 +4,7 @@
   if(typeof module==='object'&&module.exports)module.exports=api;else root.RoomLifecycle=api;
 })(typeof window==='object'?window:globalThis,function(){
   'use strict';
-  const EMPTY_MS=30000,SCAN_MS=1000;
+  const EMPTY_MS=30000,SCAN_MS=1000,WEEK_MS=604800000;
   const stamp=value=>Number.isFinite(value)&&value>0?value:0;
   function humans(room){return Object.values(room?.players||{}).filter(p=>p?.isBot===false);}
   function signal(p){return Math.max(stamp(p.lastSeen),stamp(p.disconnectedAt));}
@@ -19,14 +19,16 @@
   }
   function expiresAt(room){
     if(!valid(room))return Infinity;
-    const ps=humans(room),fallback=stamp(room.emptySince);
+    if(room.savedGame&&room.savedGame.status!=='request')return stamp(room.savedGame.lastAccessAt)?room.savedGame.lastAccessAt+WEEK_MS:Infinity;
+    const ps=humans(room),fallback=stamp(room.emptySince)||stamp(room.savedGame?.requestedAt);
     const signals=ps.length?ps.map(p=>signal(p)||fallback):[fallback];
     if(signals.some(s=>!s))return Infinity;
-    return Math.max(...signals)+EMPTY_MS;
+    const deadline=Math.max(...signals)+EMPTY_MS;
+    return room.savedGame?Math.max(deadline,stamp(room.savedGame.requestedAt)+60000):deadline;
   }
   function expired(room,now){return Number.isFinite(now)&&expiresAt(room)<=now;}
   function needsMarker(room,now){
-    return valid(room)&&!stamp(room.emptySince)&&(!humans(room).length||humans(room).some(p=>!signal(p)))&&
+    return valid(room)&&!room.savedGame&&!stamp(room.emptySince)&&(!humans(room).length||humans(room).some(p=>!signal(p)))&&
       humans(room).every(p=>signal(p)<=now-15000);
   }
   function create(fb,options={}){
@@ -40,7 +42,7 @@
     async function inspect(code,room){
       if(!uid||fb.authUid!==uid||jobs.has(code)||!/^[A-Z0-9]{4,6}$/.test(code))return;
       const gen=generation;let operation=null;
-      if(stamp(room.emptySince)&&humans(room).some(p=>signal(p)>now()-15000))operation=()=>fb.remove(ref('rooms/'+code+'/emptySince'));
+      if(!room.savedGame&&stamp(room.emptySince)&&humans(room).some(p=>signal(p)>now()-15000))operation=()=>fb.remove(ref('rooms/'+code+'/emptySince'));
       else if(expired(room,now()))operation=()=>fb.remove(ref('rooms/'+code));
       else if(needsMarker(room,now()))operation=()=>fb.set(ref('rooms/'+code+'/emptySince'),fb.serverTimestamp());
       if(!operation)return;jobs.add(code);

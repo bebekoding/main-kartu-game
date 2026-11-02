@@ -20,6 +20,7 @@ assert policy['config']['leaderboardContract']=={'.read':True,'.write':False}
 checks=[(route,'truf-multiplayer-v3.html') for route in ['/','/truf','/remi','/cangkul','/tebak','/remi/ZZ0I']]
 checks += [(f'/{file}?v=3',file) for file in ['ranked-leaderboard.js','ranked-client.js','ranked-ui.js','room-membership.js']]
 checks += [('/room-lifecycle.js?v=1','room-lifecycle.js')]
+checks += [(f'/{file}?v=1',file) for file in ['room-saves.js','room-save-ui.js']]
 checks += [('/remi-celebration.js?v=1','remi-celebration.js')]
 checks += [('/close-celebration.m4a?v=1','close-celebration.m4a','immutable')]
 def verify(pair):

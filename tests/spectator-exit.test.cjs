@@ -6,7 +6,7 @@ function source(name){for(const {code,ast}of parsed){const n=ast.body.find(n=>n.
 function setup(origin='lobby'){
   const dom=new JSDOM(html,{url:'http://localhost/remi/ABCD',runScripts:'outside-only'}),w=dom.window,events=[];
   for(const file of ['vendor/dompurify/purify.min.js','game-display.js'])w.eval(fs.readFileSync(path.join(root,file),'utf8'));
-  Object.assign(w,{isSpectator:true,_spectatorOrigin:origin,_rankedClient:null,_lastRoom:null,_remiStandingsOpen:true,_remiLbOpen:true,
+  Object.assign(w,{_roomSaveClient:null,isSpectator:true,_spectatorOrigin:origin,_rankedClient:null,_lastRoom:null,_remiStandingsOpen:true,_remiLbOpen:true,
     currentRoom:'ABCD',currentGameType:'remi',mySeat:0,lastPhase:'playing',chatLastCount:0,
     roomUnsubscribe:()=>events.push('unsubscribe'),hasAdminAccess:()=>origin==='admin',
     stopHeartbeat:()=>events.push('stop-heartbeat'),stopCountdownTicker:()=>events.push('stop-ticker'),

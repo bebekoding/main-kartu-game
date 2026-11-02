@@ -26,6 +26,8 @@
 <script src="/game-display.js?v=1"></script>
 <script src="/room-membership.js?v=3"></script>
 <script src="/room-lifecycle.js?v=1"></script>
+<script src="/room-saves.js?v=1"></script>
+<script src="/room-save-ui.js?v=1"></script>
 <script src="/ranked-leaderboard.js?v=3"></script>
 <script src="/ranked-client.js?v=3"></script>
 <script src="/ranked-ui.js?v=3"></script>
@@ -5415,6 +5417,26 @@
   .ranked-result-error { color: var(--red); font-family: var(--font-sans); font-size: 13px; }
   #rankedMatchSelect { width: 100%; margin-top: 6px; padding: 10px; background: var(--felt-dark); color: var(--cream); border: 1px solid rgba(212,168,75,0.5); border-radius: var(--radius-control); font-family: var(--font-sans); }
 
+  /* Save/restore sits above game result/pause panels, below spectator exit. */
+  #savedGameModal, #savedGamesListModal { z-index: 10085; padding: 16px; }
+  #savedGameModal[hidden], #savedGamesListModal[hidden], [data-save-game][hidden] { display: none !important; }
+  .saved-game-card { width: min(100%, 480px); max-height: 88dvh; overflow-y: auto; }
+  .saved-game-help { color: var(--cream); opacity: .85; font-family: var(--font-sans); font-size: 14px; line-height: 1.5; margin: 10px 0; overflow-wrap: anywhere; }
+  .saved-game-people { list-style: none; padding: 0; margin: 18px 0; }
+  .saved-game-people li { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid rgba(212,168,75,.24); font-family: var(--font-sans); }
+  .saved-game-people li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+  .saved-game-person-status { flex-shrink: 0; color: var(--gold-bright); font-size: 13px; }
+  .saved-game-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+  .saved-game-actions .btn { flex: 1 1 160px; min-height: 44px; padding: 12px 16px; font-family: var(--font-sans); letter-spacing: 0; text-transform: none; }
+  .saved-game-error { color: #ffb4ab; font-family: var(--font-sans); font-size: 14px; line-height: 1.5; }
+  .saved-game-error:empty { display: none; }
+  .saved-game-list-row { padding: 16px 0; border-bottom: 1px solid rgba(212,168,75,.24); }
+  .saved-game-list-row h3 { font: 700 16px var(--font-sans); margin: 0; }
+  .saved-game-list-row .btn { min-height: 44px; }
+  .saved-games-link { margin-bottom: 18px; font-family: var(--font-sans); letter-spacing: 0; text-transform: none; }
+  .save-game-button { width: auto; min-height: 44px; white-space: nowrap; }
+  .saved-game-actions .btn:focus-visible, .saved-games-link:focus-visible, .save-game-button:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 3px; }
+  @media (max-width: 700px) { .saved-game-card { padding: 22px 18px; } .saved-game-card .modal-title { font-size: 25px; line-height: 1.2; } }
 </style>
 </head>
 <body>
@@ -5512,6 +5534,7 @@
   <!-- View: Game selection (very first screen) -->
   <div class="card-box hidden" id="gameSelectView">
     <h2 class="gs-heading">Pilih Permainan</h2>
+    <button class="btn saved-games-link" data-saved-games type="button">Game tersimpan</button>
     <div class="game-options">
       <button class="game-option" data-game="truf">
         <span class="go-icon">♠️</span>
@@ -5559,6 +5582,7 @@
       <button class="link-btn hidden" data-ranked-pending type="button">Hasil peringkat</button>
     </div>
     <h2 id="lobbyHeading" class="lobby-heading">Lobby</h2>
+    <button class="btn saved-games-link" data-saved-games type="button">Game tersimpan</button>
 
     <div id="configError" class="firebase-error hidden">
       <b>⚠ Firebase belum dikonfigurasi</b><br><br>
@@ -5677,6 +5701,19 @@
 <!-- Game toast: disconnect / reconnect notifications visible to all players -->
 <div id="gameToast" class="game-toast"></div>
 
+<div class="modal-overlay" id="savedGameModal" role="dialog" aria-modal="true" aria-labelledby="savedGameTitle" hidden></div>
+<div class="modal-overlay" id="savedGamesListModal" role="dialog" aria-modal="true" aria-labelledby="savedGamesListTitle" hidden>
+  <div class="modal-card saved-game-card">
+    <h2 class="modal-title" id="savedGamesListTitle">Game tersimpan</h2>
+    <div id="savedGamesList"></div>
+    <p id="savedGamesListError" class="saved-game-error" role="alert"></p>
+    <div class="saved-game-actions">
+      <button class="btn" id="savedGamesRefreshBtn" type="button">Muat ulang</button>
+      <button class="btn" id="savedGamesCloseBtn" type="button">Tutup</button>
+    </div>
+  </div>
+</div>
+
 <!-- Fixed top-right controls (logout + rank + audio) -->
 <button id="logoutBtn" class="top-ctrl-btn logout-btn" title="Keluar Akun" style="display:none;">🚪 Keluar</button>
 <button id="lobbyRankBtn" class="top-ctrl-btn rank-fixed-btn" title="Peringkat" style="display:none;">🏆 RANK</button>
@@ -5731,6 +5768,7 @@
     </div>
     <div class="remi-topbar-actions">
       <button class="btn" id="tebakStandingsBtn">📊 Klasemen</button>
+      <button class="btn save-game-button" data-save-game type="button" hidden>Simpan game</button>
       <button class="btn" id="tebakLeaveBtn">Keluar Room</button>
     </div>
   </div>
@@ -5947,6 +5985,7 @@
       <button class="btn" id="cangkulVoiceJoinBtn">&#127908; Voice</button>
       <button class="btn" id="cangkulVoiceMuteBtn" style="display:none;">&#127908; Mic</button>
       <button class="btn" id="cangkulVoiceLeaveBtn" style="display:none;">Keluar Voice</button>
+      <button class="btn save-game-button" data-save-game type="button" hidden>Simpan game</button>
       <button class="btn" id="cangkulLeaveBtn">Keluar Room</button>
     </div>
   </div>
@@ -6019,6 +6058,7 @@
       <button class="btn" id="remiVoiceJoinBtn"><span class="emoji">&#127908;</span><span class="lbl">Voice</span></button>
       <button class="btn" id="remiVoiceMuteBtn" style="display:none;"><span class="emoji">&#127908;</span><span class="lbl">Mic</span></button>
       <button class="btn" id="remiVoiceLeaveBtn" style="display:none;"><span class="emoji">🚪</span><span class="lbl">Voice</span></button>
+      <button class="btn save-game-button" data-save-game type="button" hidden>Simpan game</button>
       <button class="btn" id="remiLeaveBtn"><span class="emoji">🚪</span><span class="lbl">Keluar</span></button>
     </div>
   </div>
@@ -6085,6 +6125,7 @@
       <p style="color:rgba(244,234,213,0.7);font-size:13px;margin:0 0 16px;">Permainan lanjut setelah <b>semua pemain</b> menekan Siap.</p>
       <div id="remiPauseReadyList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;text-align:left;"></div>
       <button class="btn primary" id="remiPauseReadyBtn" style="width:100%;">✓ Saya Siap</button>
+      <button class="btn" data-save-game type="button" style="width:100%;margin-top:10px;" hidden>Simpan game</button>
       <div id="remiPauseCount" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(244,234,213,0.6);margin-top:10px;letter-spacing:0.06em;"></div>
     </div>
   </div>
@@ -6179,6 +6220,7 @@
       <button class="btn" id="voiceMuteBtn" style="width:auto;padding:8px 14px;display:none;">&#127908; Mic</button>
       <button class="btn" id="voiceLeaveBtn" style="width:auto;padding:8px 14px;display:none;">Keluar Voice</button>
       <button class="btn" id="rulesBtn" style="width:auto;padding:8px 16px;">Aturan</button>
+      <button class="btn save-game-button" data-save-game type="button" hidden>Simpan game</button>
       <button class="btn" id="leaveGameBtn" style="width:auto;padding:8px 16px;">Keluar Room</button>
     </div>
   </div>
@@ -6476,6 +6518,42 @@ let currentRoom = null;
 let roomUnsubscribe = null;
 let lastPhase = null;  // track phase changes to trigger transitions
 let _lastRoom = null;  // latest room snapshot (used by the 1s countdown ticker)
+let _roomSaveClient = null;
+let _roomSaveEpoch = 0;
+function getRoomSaveClient() {
+  if (!_roomSaveClient) _roomSaveClient = RoomSaveUI.create(fb, {
+    uid: () => myUid, now: serverNow, spectator: () => isSpectator,
+    error: message => showGameToast(message, 'warn', 6000),
+    enter: room => {
+      setGameType(room.game || 'truf');
+      currentRoom = room.code; mySeat = room.players[myUid].seat;
+      myNickname = room.players[myUid].nickname || myNickname;
+      lastPhase = null; onDisconnectMode = null; saveRoom(room.code);
+      enterRoomView(room.code);
+    },
+    exit: () => handleForceLeaveRoom(), exitSpectator: () => handleExitSpectator(),
+    freezeChanged: frozen => {
+      _roomSaveEpoch++;
+      resetHostTrackers(); TurnReminder.reset(); RemiTurnTimer.reset();
+      if (frozen) {
+        stopRemiCelebration(); closeHostControl();
+        document.getElementById('hostControlBtn').classList.add('hidden');
+      }
+    },
+  });
+  return _roomSaveClient;
+}
+function observeRoomSave(room) {
+  getRoomSaveClient().observe(room);
+  if (!room.savedGame) return false;
+  document.querySelectorAll('.modal-overlay.show:not(#savedGameModal)').forEach(el => {
+    el.classList.remove('show'); el.style.pointerEvents = ''; el.style.zIndex = '';
+  });
+  TurnReminder.reset(); RemiTurnTimer.reset();
+  Sound.playBgm('lobby');
+  lastPhase = null;
+  return true;
+}
 // Spectator mode: user menonton room tanpa ikut bermain (pilot di Remi).
 let isSpectator = false;
 let _spectatorOrigin = null; // 'lobby' | 'admin' — tahu balik ke mana saat exit
@@ -6771,6 +6849,7 @@ const TurnReminder = (function () {
     if (timerId != null) { clearInterval(timerId); timerId = null; }
   }
   function set(isMyTurn) {
+    if (_lastRoom && _lastRoom.savedGame) isMyTurn = false;
     isMyTurn = !!isMyTurn;
     if (isMyTurn && !wasMyTurn) {
       // Mulai giliran: bel + vibrate ring kuat sekali
@@ -6843,7 +6922,7 @@ const RemiTurnTimer = (function () {
     if (!room || room.game !== 'remi' || room.phase !== 'playing') { hide(); return; }
     const c = room.remi || {};
     // Jeda aktif → sembunyikan bar & reset, supaya timer mulai segar saat lanjut.
-    if (c.pause) { turnKey = null; hide(); return; }
+    if (c.pause || room.savedGame || (_lastRoom && _lastRoom.savedGame)) { turnKey = null; hide(); return; }
     const cp = c.currentPlayer;
     const shuf = c.shuffling || null;
     const shufActive = !!(shuf && (shuf.done || 0) < (shuf.need || 20));
@@ -7498,6 +7577,7 @@ function authSetError(msg) {
 }
 
 function showAuthView() {
+  if (_roomSaveClient) _roomSaveClient.reset();
   stopRemiCelebration();
   stopAutoCleanup();
   if (isSpectator) handleExitSpectator();
@@ -8301,6 +8381,7 @@ function init() {
   setConnectionStatus('Terhubung ke Firebase', 'success');
   applyLayoutMode(getLayoutMode());
   attachListeners();
+  getRoomSaveClient();
   setupAudioControls();
   preloadCardArt();    // warm browser cache for J/Q/K images so first reveal is instant
 
@@ -8400,6 +8481,7 @@ function preloadCardArt() {
 // Desired background ambient mood for the current room state.
 function desiredBgmMood(room) {
   if (!room) return 'lobby';
+  if (room.savedGame) return 'lobby';
   const p = room.phase;
   // Final standings (game stopped) → play the dedicated end music (Avatar ED).
   if (p === 'tournament_end' || p === 'remi_tournament_end' || p === 'cangkul_tournament_end') return 'end';
@@ -8527,6 +8609,9 @@ async function setupOnDisconnect(roomCode, mode) {
 }
 
 async function attemptAutoRejoin() {
+  // A room link owns restoration. Running it alongside session restoration
+  // would attach two listeners and drive the same saved match twice.
+  if (routerRoomFromPath()) return;
   let savedRoom = null;
   try { savedRoom = sessionStorage.getItem('truf_room'); } catch (e) {}
   if (!savedRoom) return;
@@ -8535,16 +8620,18 @@ async function attemptAutoRejoin() {
     if (!snap.exists()) { clearSavedRoom(); return; }
     const room = snap.val();
     if (!room.players || !room.players[myUid] || room.players[myUid].leftHuman) { clearSavedRoom(); return; }
+    if (RoomLifecycle.expired(room, serverNow())) { clearSavedRoom(); return; }
     // I'm still a player here — resume. Clear disconnect flag + fresh heartbeat.
     myNickname = room.players[myUid].nickname || myNickname;
     // Align the selected game with the room being restored so branding/logic
     // match the actual game in progress.
     try { setGameType(room.game || 'truf'); } catch (e) {}
     currentRoom = savedRoom;
-    await fb.update(fb.ref(fb.db, `rooms/${savedRoom}/players/${myUid}`), {
-      disconnected: null,
-      disconnectedAt: null,
-      lastSeen: fb.serverTimestamp(),
+    await fb.update(fb.ref(fb.db, `rooms/${savedRoom}`), {
+      [`players/${myUid}/disconnected`]: null,
+      [`players/${myUid}/disconnectedAt`]: null,
+      [`players/${myUid}/lastSeen`]: fb.serverTimestamp(),
+      ...(room.savedGame && room.savedGame.status !== 'request' ? {'savedGame/lastAccessAt': fb.serverTimestamp()} : {}),
     });
     onDisconnectMode = null; // force re-register on next phase render
     enterRoomView(savedRoom);
@@ -8588,6 +8675,8 @@ let countdownTicker = null;
 function startCountdownTicker() {
   if (countdownTicker) clearInterval(countdownTicker);
   countdownTicker = setInterval(() => {
+    if (_roomSaveClient) _roomSaveClient.tick();
+    if (_lastRoom && _lastRoom.savedGame) return;
     if (_lastRoom && !isSpectator) { maybeMigrateHost(_lastRoom); maybePruneLobbyPlayers(_lastRoom); renderHostControls(_lastRoom); }
     if (!_lastRoom || !_lastRoom.players || _lastRoom.phase === 'lobby') return;
     const playersBySeat = {};
@@ -9047,6 +9136,7 @@ const DISCONNECT_THRESHOLD_MS = STALE_MS + GRACE_MS; // host migration threshold
 //   players/{uid}/disconnectedAt — server-time when they went away (grace clock)
 //   players/{uid}/disconnected   — true once the 30s grace expired (bot plays)
 function maybeDetectDisconnects(room) {
+  if (room && room.savedGame) return;
   if (!room || room.host !== myUid) return;
   if (room.phase === 'lobby') return; // lobby uses onDisconnect.remove
   const now = serverNow();
@@ -9080,6 +9170,7 @@ function maybeDetectDisconnects(room) {
 //    so the countdown + notifications still happen — no instant bot)
 //  - a bot seat → just refill with a bot
 function maybeRecoverEmptySeats(room) {
+  if (room && room.savedGame) return;
   if (!room || room.host !== myUid) return;
   if (room.phase === 'lobby') return;
   const roster = RoomMembership.roster(room);
@@ -9126,6 +9217,7 @@ function maybeRecoverEmptySeats(room) {
 let _hostMigrationInFlight = false;
 let _membershipBootstrapInFlight = false;
 function maybeMigrateHost(room) {
+  if (room && room.savedGame) return;
   if (!room || isSpectator || _hostMigrationInFlight || !RoomMembership.hostUnavailable(room, serverNow())) return;
   const successor = RoomMembership.onlineHumans(room, serverNow())[0];
   if (!successor || successor.uid !== myUid || successor.uid === room.host) return;
@@ -9318,6 +9410,7 @@ function setGameType(g) {
   });
 }
 function showGameSelect(opts) {
+  getRoomSaveClient().observe(null);
   if (!opts || !opts.skipUrlSync) {
     if (typeof routerNavigate === 'function') routerNavigate('/');
   }
@@ -9339,6 +9432,7 @@ function showGameSelect(opts) {
   try { Sound.playBgm('lobby'); } catch (e) {}
 }
 function showLobbyForGame(g, opts) {
+  getRoomSaveClient().observe(null);
   if (!opts || !opts.skipUrlSync) {
     if (typeof routerNavigate === 'function' && ROUTER_GAMES.includes(g)) {
       routerNavigate('/' + g);
@@ -9702,6 +9796,20 @@ async function handleJoinRoom() {
       return;
     }
 
+    if (room.savedGame) {
+      if (!RoomSaves.isMember(room, myUid)) throw new Error('Game tersimpan hanya bisa dibuka oleh pemain aslinya.');
+      if (RoomLifecycle.expired(room, serverNow())) throw new Error('Game tersimpan sudah kedaluwarsa.');
+      await fb.update(roomRef, {
+        [`players/${myUid}/lastSeen`]: fb.serverTimestamp(),
+        [`players/${myUid}/disconnected`]: null,
+        [`players/${myUid}/disconnectedAt`]: null,
+        ...(room.savedGame.status !== 'request' ? {'savedGame/lastAccessAt': fb.serverTimestamp()} : {}),
+      });
+      currentRoom = code; mySeat = room.players[myUid].seat;
+      lastPhase = null; onDisconnectMode = null; saveRoom(code);
+      enterRoomView(code);
+      return;
+    }
     const joining = RoomMembership.joinPatch(room, myUid, nickname, myUsername, fb.serverTimestamp());
     if (joining.claiming && !confirm('Room ini hanya berisi bot. Ambil alih sebagai host dan lanjutkan match?')) {
       setBtnLoading('joinRoomBtn', false);
@@ -9733,6 +9841,7 @@ async function handleJoinRoom() {
 // ROOM VIEW + LIVE SYNC
 // ============================================================
 function enterRoomView(code) {
+  if (roomUnsubscribe) { roomUnsubscribe(); roomUnsubscribe = null; }
   setLayoutFloatingVisible(true);
   document.getElementById('gameSelectView').classList.add('hidden');
   document.getElementById('lobbyView').classList.add('hidden');
@@ -9754,13 +9863,14 @@ function enterRoomView(code) {
   // Subscribe to room state changes
   const roomRef = fb.ref(fb.db, 'rooms/' + code);
   roomUnsubscribe = fb.onValue(roomRef, (snap) => {
+    if (currentRoom !== code || isSpectator) return;
     if (!snap.exists()) {
       // Room was deleted (host left)
       showLobbyStatus('Room ditutup oleh host', 'error');
       handleForceLeaveRoom();
       return;
     }
-    const room = snap.val();
+    const room = {...snap.val(), code};
 
     // Detect my seat (needed for game view orientation)
     if (room.players && room.players[myUid]) {
@@ -9775,6 +9885,7 @@ function enterRoomView(code) {
     // Ownership changes invalidate the old host's scheduled bot work.
     if (_lastRoom && _lastRoom.host !== room.host) resetHostTrackers();
     _lastRoom = room;
+    if (observeRoomSave(room)) return;
     ensureRoomMembershipIndex(room);
     renderHostControls(room);
 
@@ -10071,10 +10182,11 @@ function startHeartbeat() {
     try {
       // Each beat: refresh lastSeen AND clear any disconnect flags —
       // this is what makes a reconnecting player automatically reclaim their seat.
-      await fb.update(fb.ref(fb.db, `rooms/${currentRoom}/players/${myUid}`), {
-        lastSeen: fb.serverTimestamp(),
-        disconnected: null,
-        disconnectedAt: null,
+      await fb.update(fb.ref(fb.db, `rooms/${currentRoom}`), {
+        [`players/${myUid}/lastSeen`]: fb.serverTimestamp(),
+        [`players/${myUid}/disconnected`]: null,
+        [`players/${myUid}/disconnectedAt`]: null,
+        ...(_lastRoom?.savedGame && _lastRoom.savedGame.status !== 'request' ? {'savedGame/lastAccessAt': fb.serverTimestamp()} : {}),
       });
     } catch (e) {
       console.error('Heartbeat failed:', e);
@@ -10124,6 +10236,7 @@ async function loadSpectateRoomList() {
     const rooms = snap.exists() ? snap.val() : {};
     // Hanya Remi yang sedang berlangsung (bukan lobby, bukan selesai)
     const list = Object.values(rooms).filter(r => {
+      if (r.savedGame) return false;
       if (RoomLifecycle.expired(r, serverNow())) return false;
       if ((r.game || 'truf') !== 'remi') return false;
       const phase = r.phase || 'lobby';
@@ -10252,6 +10365,7 @@ async function handleSpectateRoom() {
 
 function onSpectatorRoomUpdate(room) {
   if (!isSpectator) return;
+  if (observeRoomSave(room)) return;
   if (room.game !== 'remi') {
     showGameToast('Game berubah, keluar dari spectator', 'warn');
     handleExitSpectator();
@@ -10296,6 +10410,7 @@ function onSpectatorRoomUpdate(room) {
 }
 
 function handleExitSpectator() {
+  if (_roomSaveClient) _roomSaveClient.reset();
   stopRemiCelebration();
   const returnToAdmin = _spectatorOrigin === 'admin' && hasAdminAccess();
   document.getElementById('spectatorExitBtn').hidden = true;
@@ -10380,6 +10495,14 @@ async function leaveRoomMembership() {
   const room = snap.val();
   const me = (room.players || {})[myUid];
   if (!me) return;
+  if (room.savedGame) {
+    if (room.savedGame.status === 'request') throw new Error('Setujui atau batalkan penyimpanan terlebih dahulu.');
+    await fb.update(fb.ref(fb.db, 'rooms/' + code), {
+      [`players/${myUid}/lastSeen`]: 0, [`players/${myUid}/disconnected`]: true,
+      [`players/${myUid}/disconnectedAt`]: fb.serverTimestamp(), [`savedGame/ready/${myUid}`]: null,
+    });
+    return;
+  }
   if (room.rankedMatchId && !(await preserveRankedResultBeforeReset(room))) {
     throw new Error('Hasil akhir belum tersimpan. Coba keluar kembali setelah koneksi pulih.');
   }
@@ -10416,6 +10539,10 @@ async function handleLeaveRoom() {
 }
 
 function handleForceLeaveRoom() {
+  if (_roomSaveClient) _roomSaveClient.reset();
+  document.querySelectorAll('.modal-overlay.show').forEach(el => {
+    el.classList.remove('show'); el.style.pointerEvents = ''; el.style.zIndex = '';
+  });
   stopRemiCelebration();
   if (_rankedClient) _rankedClient.observe(null);
   document.getElementById('hostControlBtn').classList.add('hidden');
@@ -12838,8 +12965,9 @@ function maybeRunRemiBot(room) {
   remiBotScheduled.add(key);
   const delay = 700 + Math.floor(Math.random() * 700);
   const scheduledRoom = currentRoom;
+  const scheduledSaveEpoch = _roomSaveEpoch;
   setTimeout(async () => {
-    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
+    if (_roomSaveEpoch !== scheduledSaveEpoch || _lastRoom?.savedGame || currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
       if (!snap.exists()) return;
@@ -13148,8 +13276,9 @@ function maybeResolveRemiStuck(room) {
   // Small delay + fresh re-read so a transient mid-turn state (e.g. just after a
   // pickup, before the player lays) isn't mistaken for a permanent stuck.
   const scheduledRoom = currentRoom;
+  const scheduledSaveEpoch = _roomSaveEpoch;
   setTimeout(async () => {
-    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
+    if (_roomSaveEpoch !== scheduledSaveEpoch || _lastRoom?.savedGame || currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
       if (!snap.exists()) return;
@@ -13200,8 +13329,9 @@ function maybeResolveRemiRound(room) {
   const intendedRound = (c && c.roundNumber) || 1;
   const intendedSession = (c && c.sessionNumber) || 1;
   const scheduledRoom = currentRoom;
+  const scheduledSaveEpoch = _roomSaveEpoch;
   setTimeout(async () => {
-    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
+    if (_roomSaveEpoch !== scheduledSaveEpoch || _lastRoom?.savedGame || currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
       if (!snap.exists()) return;
@@ -14700,7 +14830,11 @@ function maybeRunBotBid(room) {
     if (hand.length === 0) { botBidScheduledSeats.delete(seat); continue; }
     const delay = 600 + Math.floor(Math.random() * 1400);
     const diff = room.botDifficulty || 'easy';
-    setTimeout(() => submitBotBid(seat, hand, diff), delay);
+    const scheduledSaveEpoch = _roomSaveEpoch;
+    setTimeout(() => {
+      if (_roomSaveEpoch !== scheduledSaveEpoch || _lastRoom?.savedGame) return;
+      submitBotBid(seat, hand, diff);
+    }, delay);
   }
 }
 
@@ -16266,7 +16400,9 @@ function handleCangkulPlayWithAnim(room, card, el) {
   cangkulPlayInProgress = true;
   // Disable further clicks during the animation
   el.classList.add('flying-out');
+  const scheduledSaveEpoch = _roomSaveEpoch;
   setTimeout(() => {
+    if (_roomSaveEpoch !== scheduledSaveEpoch || _lastRoom?.savedGame) { cangkulPlayInProgress = false; return; }
     handleCangkulPlay(room, card).finally(() => { cangkulPlayInProgress = false; });
   }, 380); // matches animation duration roughly
 }
@@ -16411,8 +16547,9 @@ function maybeResolveCangkulRound(room) {
   const trick = Array.isArray(trickRaw) ? trickRaw : Object.values(trickRaw);
   cangkulResolveScheduled = true;
   const scheduledRoom = currentRoom;
+  const scheduledSaveEpoch = _roomSaveEpoch;
   setTimeout(async () => {
-    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
+    if (_roomSaveEpoch !== scheduledSaveEpoch || _lastRoom?.savedGame || currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
       if (!snap.exists()) return;
@@ -16710,8 +16847,9 @@ function maybeRunCangkulBot(room) {
   cangkulBotScheduled.add(key);
   const delay = 700 + Math.floor(Math.random() * 800);
   const scheduledRoom = currentRoom;
+  const scheduledSaveEpoch = _roomSaveEpoch;
   setTimeout(async () => {
-    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
+    if (_roomSaveEpoch !== scheduledSaveEpoch || _lastRoom?.savedGame || currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
       if (!snap.exists()) return;
@@ -17160,8 +17298,9 @@ function maybeTriggerReveal(room) {
   if (revealTriggerScheduled) return;
   revealTriggerScheduled = true;
   const scheduledRoom = currentRoom;
+  const scheduledSaveEpoch = _roomSaveEpoch;
   setTimeout(async () => {
-    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
+    if (_roomSaveEpoch !== scheduledSaveEpoch || _lastRoom?.savedGame || currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       await fb.update(
         fb.ref(fb.db, `rooms/${currentRoom}/bidding`),
@@ -17192,8 +17331,9 @@ function maybeRunBotConfirms(room) {
     botConfirmScheduledSeats.add(seat);
     const delay = 800 + Math.floor(Math.random() * 1200);
     const scheduledRoom = currentRoom;
+  const scheduledSaveEpoch = _roomSaveEpoch;
     setTimeout(async () => {
-      if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
+      if (_roomSaveEpoch !== scheduledSaveEpoch || _lastRoom?.savedGame || currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
       try {
         const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
         if (!snap.exists()) return;
@@ -17243,8 +17383,9 @@ function maybeResolveBids(room) {
   if (bidResolveScheduled) return;
   bidResolveScheduled = true;
   const scheduledRoom = currentRoom;
+  const scheduledSaveEpoch = _roomSaveEpoch;
   setTimeout(async () => {
-    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
+    if (_roomSaveEpoch !== scheduledSaveEpoch || _lastRoom?.savedGame || currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const { winner, winnerBid } = determineBidWinner(bidding.bids);
       if (winner < 0 || !winnerBid) {
@@ -17541,8 +17682,9 @@ function maybeStartPlay(room) {
   if (playStartScheduled) return;
   playStartScheduled = true;
   const scheduledRoom = currentRoom;
+  const scheduledSaveEpoch = _roomSaveEpoch;
   setTimeout(async () => {
-    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
+    if (_roomSaveEpoch !== scheduledSaveEpoch || _lastRoom?.savedGame || currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const bidWinner = result.winner;
       const play = {
@@ -17793,8 +17935,9 @@ function maybeRunBotPlay(room) {
 
   const delay = 700 + Math.floor(Math.random() * 700);
   const scheduledRoom = currentRoom;
+  const scheduledSaveEpoch = _roomSaveEpoch;
   setTimeout(async () => {
-    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
+    if (_roomSaveEpoch !== scheduledSaveEpoch || _lastRoom?.savedGame || currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       // Re-fetch latest state for safety
       const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
@@ -17845,10 +17988,11 @@ function maybeFinishSession(room) {
   sessionEndScheduled = true;
 
   const scheduledRoom = currentRoom;
+  const scheduledSaveEpoch = _roomSaveEpoch;
 
   setTimeout(async () => {
 
-    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
+    if (_roomSaveEpoch !== scheduledSaveEpoch || _lastRoom?.savedGame || currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const commits = room.bidResult.commitments || {};
       const tricks = room.play.tricksWon || {};
@@ -18209,6 +18353,10 @@ function resetHostTrackers() {
   // Remi-specific
   remiBotScheduled = new Set();
   remiResolveScheduled = false;
+  _remiStuckScheduled = false;
+  _tebakResolveScheduled = false;
+  _tebakBotInFlight = false;
+  cangkulPlayInProgress = false;
 }
 
 // Host detects trick complete (4 cards) and resolves after a brief delay
@@ -18224,10 +18372,11 @@ function maybeResolveTrick(room) {
   trickResolveScheduled = true;
 
   const scheduledRoom = currentRoom;
+  const scheduledSaveEpoch = _roomSaveEpoch;
 
   setTimeout(async () => {
 
-    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
+    if (_roomSaveEpoch !== scheduledSaveEpoch || _lastRoom?.savedGame || currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const { trumpSuit, noTrump } = getTrumpFromRoom(room);
       const winnerSeat = determineTrickWinner(currentTrick, play.leadSuit, trumpSuit, noTrump);
@@ -18270,8 +18419,9 @@ function maybeRunBotTieDecision(room) {
   if (botTieDecisionScheduled) return;
   botTieDecisionScheduled = true;
   const scheduledRoom = currentRoom;
+  const scheduledSaveEpoch = _roomSaveEpoch;
   setTimeout(async () => {
-    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
+    if (_roomSaveEpoch !== scheduledSaveEpoch || _lastRoom?.savedGame || currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       // Re-check if player reconnected during delay
       const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
@@ -19255,8 +19405,9 @@ function maybeResolveTebakRound(room) {
   if (_tebakResolveScheduled) return;
   _tebakResolveScheduled = true;
   const scheduledRoom = currentRoom;
+  const scheduledSaveEpoch = _roomSaveEpoch;
   setTimeout(async () => {
-    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
+    if (_roomSaveEpoch !== scheduledSaveEpoch || _lastRoom?.savedGame || currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
       if (!snap.exists()) return;
@@ -19740,8 +19891,9 @@ function maybeRunTebakBot(room) {
     if (_tebakBotInFlight) return;
     _tebakBotInFlight = true;
     const scheduledRoom = currentRoom;
+  const scheduledSaveEpoch = _roomSaveEpoch;
     setTimeout(async () => {
-      if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
+      if (_roomSaveEpoch !== scheduledSaveEpoch || _lastRoom?.savedGame || currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
       try {
         const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
         if (!snap.exists()) return;
@@ -19763,8 +19915,9 @@ function maybeRunTebakBot(room) {
   if (_tebakBotInFlight) return;
   _tebakBotInFlight = true;
   const scheduledRoom = currentRoom;
+  const scheduledSaveEpoch = _roomSaveEpoch;
   setTimeout(async () => {
-    if (currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
+    if (_roomSaveEpoch !== scheduledSaveEpoch || _lastRoom?.savedGame || currentRoom !== scheduledRoom || !_lastRoom || _lastRoom.host !== myUid) return;
     try {
       const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
       if (!snap.exists()) return;

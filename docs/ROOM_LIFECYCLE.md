@@ -1,6 +1,12 @@
 # Room expiry and spectator exit
 
-Updated 2026-10-27. Applies to canonical membership v2 rooms in all four games.
+Updated 2026-11-02. Applies to canonical membership v2 rooms in all four games.
+
+The 30-second policy below applies to ordinary unsaved rooms. Explicitly saved
+games instead retain their frozen state for seven days after original-player
+access; viewers never extend that period. A pending save request has a finite
+60-second consent window. See [Saved games](SAVED_GAMES.md) for save/resume,
+unanimous consent, immutable seats and the server checks that override cleanup.
 
 - An authenticated application watches rooms and checks expiry every second.
   A human's last server heartbeat or later server disconnect timestamp protects

@@ -80,4 +80,5 @@ rules.rules.rooms.$roomCode = room;
 require('./admin-policy.cjs')(rules);
 require('./leaderboard-policy.cjs')(rules, room);
 require('./room-lifecycle-policy.cjs')(room);
+require('./room-save-policy.cjs')(room);
 fs.writeFileSync(file, JSON.stringify(rules,null,2)+'\n');

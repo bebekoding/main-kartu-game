@@ -4,6 +4,7 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const assert=require('node:assert/strict');
 const Client=require('../ranked-client.js'),L=require('../ranked-leaderboard.js'),Membership=require('../room-membership.js');
+const Saves=require('../room-saves.js');
 const {scripts}=require('../scripts/check-render-safety.cjs');
 const html=fs.readFileSync(path.join(__dirname,'../truf-multiplayer-v3.html'),'utf8'),parsed=scripts(html);
 const BASE='http://127.0.0.1:19000',NS='demo-main-kartu-host',ID='c'.repeat(32);
@@ -37,7 +38,7 @@ function transport(uid,controls={}){
     onValue:()=>()=>{},serverTimestamp:()=>({'.sv':'timestamp'})};
 }
 function source(name){for(const {ast,code}of parsed){const n=ast.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name===name);if(n)return code.slice(n.start,n.end);}throw Error('Missing '+name);}
-async function actualStart(game,size,client,fb){
+async function actualStart(game,size,client,fb,ranked=true){
   const errors=[];
   const env={console:{log:()=>{},warn:()=>{},error:(...e)=>errors.push(e.map(String).join(' '))},Math,Date,Set,Map,
     fb,currentRoom:'ZZ0I',myUid:'p0',MAX_PLAYERS:4,
@@ -47,7 +48,7 @@ async function actualStart(game,size,client,fb){
   const context=vm.createContext(env);
   for(const name of ['handleStartGame','handleStartRemi','handleStartCangkul','handleStartTebak','generateShuffledDeck','generateCekiDeck','generateCangkulDeck','generateTebakDeck','extractFourOfAKind'])vm.runInContext(source(name),context);
   await env.handleStartGame();assert.deepEqual(errors,[],game+' app start');
-  const room=await rpc('p0','rooms/ZZ0I');assert.equal(room.rankedMatchId,ID);assert.equal(room.phase,game==='truf'?'bidding':'playing');
+  const room=await rpc('p0','rooms/ZZ0I');assert.equal(room.rankedMatchId,ranked?ID:undefined);assert.equal(room.phase,game==='truf'?'bidding':'playing');
   assert.equal(Object.keys(room.players).length,size);
   const state=room[game]||room;
   assert.ok(state.hands||room.hands,'actual deck/hand payload accepted');
@@ -61,16 +62,36 @@ async function makeFinished(game,size){
   else Object.assign(final,{hands:null,gameState:{session:1},sessionResult:{sessionNumber:1,deltas:{0:0,1:0,2:0,3:0}},play:{trickNumber:13,tricksWon:{0:13,1:0,2:0,3:0}}});
   await rpc('OWNER','rooms/ZZ0I','PATCH',final);return rpc('p0','rooms/ZZ0I');
 }
+async function saveAndResumeActualDeal(fb){
+  const before=await rpc('p0','rooms/ZZ0I'),saveId='d'.repeat(32),resumeId='e'.repeat(32);
+  await rpc('p0','rooms/ZZ0I/savedGame','PUT',Saves.request(before,'p0',saveId,{'.sv':'timestamp'}));
+  const humans=Object.values(Saves.humans(before));
+  for(const uid of humans.slice(1))await rpc(uid,'rooms/ZZ0I/savedGame/votes/'+uid,'PUT',saveId);
+  await rpc('p0','rooms/ZZ0I','PATCH',{'savedGame/status':'saved','savedGame/savedAt':{'.sv':'timestamp'}});
+  await assert.rejects(rpc('p0','rooms/ZZ0I/phase','PUT','lobby'),/401/);
+  await rpc('p0','rooms/ZZ0I','PATCH',{'savedGame/status':'resuming','savedGame/resumeId':resumeId,'savedGame/resumeAt':{'.sv':'timestamp'},'savedGame/ready':null});
+  for(const uid of humans)await rpc(uid,'rooms/ZZ0I/savedGame/ready/'+uid,'PUT',resumeId);
+  await rpc('p0','rooms/ZZ0I/savedGame','DELETE');
+  const after=await rpc('p0','rooms/ZZ0I');assert.deepEqual(after,before,'entire actual dealt room survives save/resume, including ranking identity');
+}
 async function setup(game='remi',size=4,controls={}){
   await rpc('OWNER','','PUT',fixture(game,size));
   const fb=transport('p0',controls),client=Client.create(fb,{randomId:()=>ID});client.start();
   await actualStart(game,size,client,fb);
+  await saveAndResumeActualDeal(fb);
   const room=await makeFinished(game,size);await client.propose(room);
   return {fb,client,room,controls};
 }
 async function approveDirect(size,start=0){for(let s=start;s<size;s++)await rpc('p'+s,'rankedMatches/'+ID+'/votes/p'+s,'PUT',true);}
 (async()=>{
   await rpc('OWNER','.settings/rules','PUT',JSON.parse(fs.readFileSync(path.join(__dirname,'../database.rules.json'),'utf8')));
+  for(const [game,size]of [['truf',4],['remi',4],['cangkul',3],['cangkul',6],['tebak',4],['tebak',6]]){
+    const seed=fixture(game,size);for(let s=1;s<size;s++)seed.rooms.ZZ0I.players['p'+s].isBot=true;
+    await rpc('OWNER','','PUT',seed);
+    const fb=transport('p0'),client=Client.create(fb);client.start();await actualStart(game,size,client,fb,false);
+    await saveAndResumeActualDeal(fb);client.stop();
+    console.log('PASS actual '+game+' solo/bots deal → save → resume preserves every game field');
+  }
   for(const [game,size]of [['truf',4],['remi',4],['cangkul',3],['cangkul',6],['tebak',4],['tebak',6]]){
     const {client}=await setup(game,size);
     for(let s=0;s<size;s++){
@@ -117,5 +138,5 @@ async function approveDirect(size,start=0){for(let s=start;s<size;s++)await rpc(
     await approveDirect(4,1);await h.client.finalize(ID);assert.equal((await rpc('p0','leaderboards/remi/p0')).matches,1);h.client.stop();
     console.log('PASS repeated identical approval is safe; changing a signed decision is refused');
   }
-  console.log('12 local client/rules integration scenarios passed.');
+  console.log('18 local client/rules integration scenarios passed, including save/resume of actual deals.');
 })().catch(error=>{console.error(error.stack);process.exitCode=1;});
