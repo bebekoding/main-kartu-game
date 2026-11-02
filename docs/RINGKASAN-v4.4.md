@@ -7,6 +7,7 @@ Status: persiapan V4.4, bukan pengumuman rilis game kelima.
 
 - Empat game yang sudah tersedia: Truf (4), Cangkul (3–6), Remi (4), Tebak Kartu (4–6).
 - Game kelima: **Capsa Banting, tepat 4 pemain**, dikonfirmasi pengguna. Aturan harus diteliti di internet dan diverifikasi pengguna sebelum implementasi. Lihat [draft Capsa](CAPSA_RULES_DRAFT.md).
+- Revisi Capsa pengguna: tanpa triple mandiri; bomb = empat rank sama + satu bebas. Setelah bomb tak dilawan, pemilik boleh membalik kekuatan sampai akhir ronde. Semua lawan pass membuka meja baru, bukan mengakhiri ronde. Sisa kartu ×10; poin terendah terbaik; sesi berhenti pada skor >=250. Detail draft internet yang bertentangan dicabut. Lihat draft untuk detail lanjutan yang masih terbuka.
 - Tetap menggunakan layanan Firebase saat ini; hasil leaderboard disahkan melalui persetujuan semua pemain manusia, bukan simulasi seluruh permainan di server.
 - Nama profil hanya nama tampilan; akun login lama tetap digunakan.
 
