@@ -27,6 +27,13 @@ firebase deploy --only hosting
 firebase deploy --only database --project truf-e3256
 ```
 
+## Persiapan V4.4
+
+Baseline terakhir `46df17f`. Game kelima yang dipilih adalah **Capsa Banting (4 pemain)**; aturan sedang menunggu verifikasi pengguna dan game belum diimplementasikan.
+
+- [Handoff lengkap menuju V4.4](docs/RINGKASAN-v4.4.md): perubahan, keputusan, batasan, PR dan rencana integrasi.
+- [Draft aturan Capsa Banting](docs/CAPSA_RULES_DRAFT.md): hasil riset beserta variasi yang perlu dipilih.
+
 ## Dokumentasi
 
 Ringkasan per versi ada di `docs/`:
@@ -34,4 +41,6 @@ Ringkasan per versi ada di `docs/`:
 - `RINGKASAN-v4.3.3.md` — handoff v4.3.3, saran arsitektur & gameplay
 - `REMI_RULES.md` — aturan lengkap Remi
 
-Versi saat ini: **v4.3.3** (development)
+Dokumen fitur terkini: [host](docs/HOST_POLICY.md), [leaderboard](docs/LEADERBOARD_SECURITY.md), [room](docs/ROOM_LIFECYCLE.md), [save/resume](docs/SAVED_GAMES.md), [profil](docs/PLAYER_PROFILES.md), [online](docs/ONLINE_PLAYERS.md), [celebration Remi](docs/REMI_CELEBRATION.md).
+
+Status versi: **persiapan V4.4**; belum merupakan rilis V4.4.
