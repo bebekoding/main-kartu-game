@@ -26,19 +26,34 @@ Pendaftaran project sidebar tidak tersedia melalui alat project saat persiapan i
 
 - Nama **Capsa**, tepat empat pemain, mekanisme Banting.
 - Tanpa triple mandiri; bomb empat rank sama + satu kartu bebas.
-- Bomb tak dilawan memberi pemilik pilihan membalik kekuatan kartu dan kombo sampai akhir ronde.
+- Bomb hanya melawan lima kartu. Bomb tak dilawan memberi pemilik pilihan membalik kekuatan kartu dan kombo; bomb berikutnya boleh membalik kembali ke normal. Pembagian berikutnya selalu kembali normal.
 - Semua lawan pass membuka meja baru, ronde berakhir saat salah satu tangan habis.
 - Ronde pertama searah jarum jam, ronde kedua berlawanan, selanjutnya bergantian setiap pembagian kartu. Ini terpisah dari pembalikan kekuatan bomb.
-- Timer **15 detik per giliran**.
+- Timer **30 detik per giliran**.
 - Tambahan skor akhir ronde = jumlah kartu tersisa ×10; poin terendah terbaik. Sesi berakhir setelah pemberian skor saat ada total >=250.
-- Belum diputuskan: efek bomb kedua ketika terbalik, detail pembuka dan pembanding suit/straight terbalik, timeout, seri serta agregasi leaderboard lintas sesi.
+- Pembuka ronde pertama wajib memuat 3♦, boleh single, pair, atau kombo lima kartu sah. Ronde berikutnya dibuka pemenang sebelumnya. Semua pemain wajib klik Ready di awal setiap ronde.
+- Straight normal memakai ujung straight lalu suit ujung; A2345 memakai ujung 5. Flush normal mengikuti ♠ > ♥ > ♣ > ♦. Full house ditentukan rank triple.
+- Ujung straight dan suit ikut terbalik. Pair/flush memilih ulang kartu terkuat menurut keadaan aktif. Straight sah A2345 sampai 10-J-Q-K-A, tanpa J-Q-K-A-2. Flush sesama suit memakai kartu terkuat aktif; pair sesama rank memakai suit terkuat aktif. Pass sukarela dan bermain lagi pada giliran berikutnya diperbolehkan. Skor akhir sama mendapat peringkat bersama.
+- Timeout: membalas menjadi pass; membuka menjadi single terendah legal; pilihan bomb mempertahankan keadaan aktif. Ready tanpa batas waktu. Detail dan contoh penerimaan ada di `docs/CAPSA_RULES_DRAFT.md`.
+- Agregasi leaderboard lintas sesi belum diputuskan; Capsa awal tetap tanpa award leaderboard.
+- Peta integrasi dan verifikasi kickoff tercatat di `docs/CAPSA_KICKOFF_PLAN-v4.4.md`.
 
 ## Batas persiapan ini
 
-Capsa belum diimplementasikan. Tidak membuat Firebase project/database baru, memindahkan akun pemain, mengganti URL live atau melakukan deploy. Konfigurasi `.firebaserc` masih menunjuk **produksi `truf-e3256`**; kickoff berikutnya sebaiknya mulai dengan emulator/preview lokal. Dokumen dan struktur project pengembangan tidak sama dengan migrasi data produksi.
+Engine murni Capsa sudah dibuat di `capsa-engine.js`, dengan 26 tes aturan. Capsa sudah dapat dimainkan dari lobby lokal melalui gateway emulator, tanpa leaderboard. Panduan dan bukti pengujian ada di `docs/CAPSA_LOCAL.md`; integrasi produksi belum dibuat. Kontrak API ada di `docs/CAPSA_ENGINE.md`. Tidak membuat Firebase project/database baru, memindahkan akun pemain, mengganti URL live atau melakukan deploy. Konfigurasi `.firebaserc` masih menunjuk **produksi `truf-e3256`**; kickoff berikutnya sebaiknya mulai dengan emulator/preview lokal. Dokumen dan struktur project pengembangan tidak sama dengan migrasi data produksi.
 
 PR keamanan sumber tentang kartu tersembunyi publik, validasi komunikasi room dan beberapa aksi permainan dicatat di handoff. Jangan menyatakan sudah selesai tanpa reproduksi dan verifikasi yang sesuai.
 
 ## Teks untuk memulai chat di project baru
 
 > Kita mulai kickoff Main Kartu 4.4 di folder `/Users/960075/Documents/Main Kartu 4.4`. Baca `docs/KICKOFF-v4.4.md`, `docs/RINGKASAN-v4.4.md` dan `docs/CAPSA_RULES_DRAFT.md`. Tujuan berikutnya menambah Capsa sesuai keputusan pengguna. Periksa status Git terkini, pertahankan file audit untracked dan jangan menimpa perubahan lain. Mulai dari memetakan integrasi dan menyelesaikan detail aturan yang masih terbuka; jangan membuat asumsi aturan ambigu. Pengembangan serta pengujian awal dilakukan lokal/emulator. Belum ada instruksi deploy atau migrasi data produksi dari kickoff ini.
+
+## Keputusan deploy 3 November 2026
+
+Pengguna meminta deploy web dan memilih tetap gratis: browser host dipercaya serta dapat membaca seluruh kartu. Adapter/rules produksi disiapkan sesuai `CAPSA_HOST.md`; izin deploy sudah diberikan, tidak perlu meminta ulang. Akun online tetap; tidak menyalin emulator atau mengaktifkan billing.
+
+## Keputusan tampilan dan timer terbaru
+
+Pembaruan 3 November 2026: waktu berpikir 30 detik. Kartu aktif ditampilkan besar di tengah meja; riwayat tersembunyi sampai tombol Historis ditekan. Jeda kemenangan tetap 7 detik, lalu pembagian otomatis dan Ready manusia yang baru.
+
+Tampilan terbaru mengikuti susunan Remi: utara/barat/timur mengelilingi tengah, pengguna di selatan. Seluruh kartu yang sudah dimainkan dalam ronde tampil bersama di tengah dan hanya direset pada pembagian ronde berikutnya. Ini menggantikan keputusan sebelumnya untuk menampilkan hanya kartu terakhir di tengah.

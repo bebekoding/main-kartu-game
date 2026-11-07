@@ -16,7 +16,7 @@
   };
   function canSave(room,uid){
     return !!(room&&room.membershipVersion===2&&!room.savedGame&&room.players?.[uid]?.isBot===false&&
-      room.phase&&room.phase!=='lobby'&&!['tournament_end','remi_tournament_end','cangkul_tournament_end','tebak_match_end'].includes(room.phase));
+      room.phase&&room.phase!=='lobby'&&!['tournament_end','remi_tournament_end','cangkul_tournament_end','tebak_match_end','capsa_session_end'].includes(room.phase));
   }
   function humans(room){
     return Object.fromEntries(Object.values(room.players||{}).filter(p=>p.isBot===false).map(p=>[p.seat,p.uid]));

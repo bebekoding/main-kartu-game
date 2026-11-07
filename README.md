@@ -7,7 +7,7 @@ Web multiplayer card game (Truf, Cangkul, Remi, Tebak Kartu) berbasis single-fil
 - **Backend:** Firebase Realtime Database (`truf-e3256`, region `asia-southeast1`)
 - **Stack:** Vanilla JS + Firebase SDK v10.12.0 (no build step)
 
-## 4 Game
+## Game
 
 | Game | Pemain | Mekanisme |
 |------|--------|-----------|
@@ -15,6 +15,7 @@ Web multiplayer card game (Truf, Cangkul, Remi, Tebak Kartu) berbasis single-fil
 | Cangkul | 3–6 | Habiskan kartu duluan, tarik dari deck jika tidak punya suit |
 | Remi | 4 | Dasar (run) + pararel (set), ambil buangan, tutupan, ranking |
 | Tebak Kartu | 4–6 | Tebak kartu lawan berdasarkan rank, kumpulkan set |
+| Capsa | 4 | Banting, pembalikan kekuatan bomb dan penalti sisa kartu ×10 |
 
 ## Fitur Cross-Game
 
@@ -27,12 +28,16 @@ firebase deploy --only hosting
 firebase deploy --only database --project truf-e3256
 ```
 
-## Persiapan V4.4
+## Rilis V4.4
 
-Baseline terakhir `46df17f`. Game kelima bernama **Capsa (4 pemain)**, memakai mekanisme Banting. Arah giliran bergantian per ronde mulai searah jarum jam; timer 15 detik per giliran. Detail aturan sedang dilengkapi dan game belum diimplementasikan.
+Capsa diterbitkan ke web pada 3 November 2026. Game kelima bernama **Capsa (4 pemain)**, memakai mekanisme Banting. Arah giliran bergantian per ronde mulai searah jarum jam; timer 30 detik per giliran. Integrasi web Capsa memakai browser host sesuai pilihan pengguna agar tetap gratis; lihat [kontrak host](docs/CAPSA_HOST.md). Leaderboard Capsa belum diaktifkan. Lingkungan demo tetap dapat dijalankan lewat `npm run dev:local`.
 
 - [Handoff lengkap menuju V4.4](docs/RINGKASAN-v4.4.md): perubahan, keputusan, batasan, PR dan rencana integrasi.
 - [Draft aturan Capsa](docs/CAPSA_RULES_DRAFT.md): hasil riset dan penyesuaian pengguna beserta detail yang perlu dipilih.
+
+- [Kontrak engine Capsa](docs/CAPSA_ENGINE.md): API, transisi ronde dan batas integrasi lokal.
+
+- [Panduan Capsa lokal](docs/CAPSA_LOCAL.md): menjalankan emulator, checkpoint/pemulihan akun dan game, batas data/keamanan serta hasil pengujian.
 
 ## Dokumentasi
 
@@ -43,4 +48,4 @@ Ringkasan per versi ada di `docs/`:
 
 Dokumen fitur terkini: [host](docs/HOST_POLICY.md), [leaderboard](docs/LEADERBOARD_SECURITY.md), [room](docs/ROOM_LIFECYCLE.md), [save/resume](docs/SAVED_GAMES.md), [profil](docs/PLAYER_PROFILES.md), [online](docs/ONLINE_PLAYERS.md), [celebration Remi](docs/REMI_CELEBRATION.md).
 
-Status versi: **persiapan V4.4**; belum merupakan rilis V4.4.
+Status versi: **V4.4, kandidat deploy Capsa**; status publikasi dicatat setelah verifikasi Hosting/rules aktif.

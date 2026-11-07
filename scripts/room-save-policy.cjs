@@ -13,7 +13,7 @@ module.exports=function(room){
   const allReady=each(S,s=>`${S}.child('ready').child(${uid(s)}).val() === ${S}.child('resumeId').val() && ${online(uid(s))}`);
   const thaw=`(${participant} && ${S}.child('status').val() === 'resuming' && ${allReady})`;
   const cancel=`(${valid} && ${S}.child('status').val() === 'request' && (${member} || ${S}.child('requestedAt').val() <= now - 60000))`;
-  const create=`${valid} && !data.exists() && ${R}.child('membershipVersion').val() === 2 && ${online('auth.uid')} && ${R}.child('phase').isString() && !${R}.child('phase').val().matches(/^(lobby|tournament_end|remi_tournament_end|cangkul_tournament_end|tebak_match_end)$/)`;
+  const create=`${valid} && !data.exists() && ${R}.child('membershipVersion').val() === 2 && ${online('auth.uid')} && ${R}.child('phase').isString() && !${R}.child('phase').val().matches(/^(lobby|tournament_end|remi_tournament_end|cangkul_tournament_end|tebak_match_end|capsa_session_end)$/)`;
   const post='newData.parent()';
   const saving=`${S}.child('status').val() === 'request' && ${S}.child('requestedAt').val() > now - 60000 && ${allVotes}`;
   const start=`${S}.child('status').val() === 'saved'`;

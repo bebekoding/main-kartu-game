@@ -24,7 +24,7 @@
 <!-- Firebase SDK (modular v10) -->
 <script src="/vendor/dompurify/purify.min.js?v=3.4.17"></script>
 <script src="/game-display.js?v=1"></script>
-<script src="/player-profiles.js?v=1"></script>
+<script src="/player-profiles.js?v=2"></script>
 <script src="/profile-ui.js?v=1"></script>
 <script src="/online-players.js?v=1"></script>
 <script src="/room-membership.js?v=3"></script>
@@ -35,14 +35,21 @@
 <script src="/ranked-client.js?v=3"></script>
 <script src="/ranked-ui.js?v=3"></script>
 <script src="/remi-celebration.js?v=1"></script>
+<script src="/local-runtime.js?v=1"></script>
+<script src="/bot-names.js?v=1"></script>
+<script src="/capsa-engine.js?v=3"></script>
+<script src="/capsa-bot.js?v=1"></script>
+<script src="/capsa-host.js?v=3"></script>
+<script src="/capsa-ui.js?v=6"></script>
+<link rel="stylesheet" href="/capsa.css?v=3">
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import {
-    getDatabase, ref, set, get, update, onValue, onChildAdded, onDisconnect,
+    getDatabase, connectDatabaseEmulator, runTransaction, ref, set, get, update, onValue, onChildAdded, onDisconnect,
     serverTimestamp, child, push, remove, goOnline, goOffline
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
   import {
-    getAuth, onAuthStateChanged, signOut,
+    getAuth, connectAuthEmulator, onAuthStateChanged, signOut,
     signInWithEmailAndPassword, createUserWithEmailAndPassword,
     updatePassword, reauthenticateWithCredential, EmailAuthProvider
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -57,9 +64,17 @@
     appId: "1:284836421229:web:17be4c07765a4d84e5e964"
   };
 
-  const app = initializeApp(firebaseConfig);
+  if (!window.LocalRuntime) throw new Error('Konfigurasi lingkungan belum tersedia. Muat ulang halaman.');
+  const runtime = LocalRuntime.config(location, firebaseConfig);
+  window.MAIN_KARTU_LOCAL = runtime.local;
+  window.CAPSA_BROWSER_HOST = !runtime.local || new URLSearchParams(location.search).get('host') === '1';
+  const app = initializeApp(runtime.firebase);
   const db = getDatabase(app);
   const auth = getAuth(app);
+  if (runtime.local) {
+    connectDatabaseEmulator(db, '127.0.0.1', runtime.databasePort);
+    connectAuthEmulator(auth, 'http://127.0.0.1:' + runtime.authPort, {disableWarnings:true});
+  }
   const membershipDb = window.RoomMembership.databaseBridge({ db, ref, set, get, update, remove });
 
   // SECURITY: identity comes from Firebase Authentication, so the database
@@ -73,7 +88,7 @@
   // authEmailFor() in the main script, which must stay in sync with the
   // mapping used by the account migration.
   window.firebase = {
-    db, ref, set, get, update, onValue, onChildAdded, onDisconnect,
+    db, runTransaction, ref, set, get, update, onValue, onChildAdded, onDisconnect,
     serverTimestamp, child, push, remove, goOnline, goOffline,
     auth, authUid: null, currentUser: null,
     signOut: () => signOut(auth),
@@ -5458,6 +5473,21 @@
   .avatar-flame { background-position: 33.333333% 100.000000%; }
   .avatar-blueeye { background-position: 66.666667% 100.000000%; }
   .avatar-reaper { background-position: 100.000000% 100.000000%; }
+  .player-avatar.avatar-jjk { background-image: url('/assets/avatars/jjk-emblems-v1.png'); background-size: 418% 418%; }
+  .avatar-jjk-orbs { background-position: 2.0% 2.8%; }
+  .avatar-jjk-envelope { background-position: 34.0% 2.8%; }
+  .avatar-jjk-spike { background-position: 66.0% 2.8%; }
+  .avatar-jjk-car { background-position: 98.0% 2.8%; }
+  .avatar-jjk-yuji { background-position: 2.0% 34.6%; }
+  .avatar-jjk-swirl { background-position: 34.0% 34.6%; }
+  .avatar-jjk-flame { background-position: 66.0% 34.6%; }
+  .avatar-jjk-shadow { background-position: 98.0% 34.6%; }
+  .avatar-jjk-seal { background-position: 2.0% 66.3%; }
+  .avatar-jjk-wolf { background-position: 34.0% 66.3%; }
+  .avatar-jjk-wave { background-position: 66.0% 66.3%; }
+  .avatar-jjk-nobara { background-position: 98.0% 66.3%; }
+  .avatar-jjk-gojo { background-position: 2.0% 97.7%; }
+  .avatar-jjk-dagger { background-position: 34.0% 97.7%; }
   .profile-player-name { display: flex; align-items: center; justify-content: center; gap: 6px; overflow-wrap: anywhere; }
   .seat-name.profile-player-name, .rank-name.profile-player-name { justify-content: flex-start; }
   .profile-open-button { display: flex; align-items: center; gap: 10px; width: 100%; margin: 0 0 16px; padding: 10px 14px; min-height: 52px; color: var(--cream); background: var(--felt-dark); border: 1px solid rgba(212,168,75,.5); border-radius: var(--radius-panel); font: 600 15px var(--font-sans); text-align: left; cursor: pointer; }
@@ -5506,6 +5536,7 @@
   <!-- AUTH SCREEN — shown before everything else                    -->
   <!-- ============================================================ -->
   <div class="card-box" id="authView">
+    <p id="localNotice" class="local-notice" hidden>Mode lokal: daftarkan akun uji baru. Akun asli tetap terpisah.</p>
     <h2 id="authTitle">Masuk</h2>
     <p class="subtitle" id="authSubtitle"></p>
 
@@ -5624,6 +5655,14 @@
         <span class="go-body">
           <span class="game-option-title">TEBAK KARTU</span>
           <span class="game-option-meta">4–6 Pemain · Tebak &amp; Kumpulkan</span>
+        </span>
+        <span class="go-arrow">→</span>
+      </button>
+      <button class="game-option" data-game="capsa" hidden>
+        <span class="go-icon">♠️</span>
+        <span class="go-body">
+          <span class="game-option-title">CAPSA</span>
+          <span class="game-option-meta">4 Pemain · Banting &amp; Kombinasi</span>
         </span>
         <span class="go-arrow">→</span>
       </button>
@@ -6544,23 +6583,9 @@
 const ROOM_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const ROOM_CODE_LENGTH = 4;
 const MAX_PLAYERS = 4;
-// Pool nama bot — dipilih ACAK saat bot ditambahkan, bukan deterministik
-// berdasar seat. Dapat-pengulangan terhindari selama pool masih ada nama yang
-// belum dipakai di room ini.
-const BOT_NAME_POOL = ['Lord Luhut', 'Bunda Teddy', 'Fufufafa', 'N. Pigai', 'KDM', "Rudy Mas'ud", 'Dasco'];
-// Backward compat helper: deterministic-by-seat (dipakai di kick-to-bot path).
-const BOT_NAMES = { 0: 'Lord Luhut', 1: 'Bunda Teddy', 2: 'Fufufafa', 3: 'N. Pigai', 4: 'KDM', 5: "Rudy Mas'ud", 6: 'Dasco' };
-function botNameForSeat(seat) { return BOT_NAMES[seat] || `Bot ${seat + 1}`; }
-// Pick bot name acak dari pool, exclude nama yang sudah dipakai pemain lain.
-// `takenNicknames` boleh Set atau Array (kosong = bisa pilih apapun).
-function pickRandomBotName(takenNicknames) {
-  const taken = takenNicknames instanceof Set
-    ? takenNicknames
-    : new Set(Array.isArray(takenNicknames) ? takenNicknames : []);
-  const available = BOT_NAME_POOL.filter(n => !taken.has(n));
-  const pool = available.length > 0 ? available : BOT_NAME_POOL;
-  return pool[Math.floor(Math.random() * pool.length)];
-}
+// Shared bot names for the room and game views.
+function botNameForSeat(seat) { return BotNames.pool[seat] || `Bot ${seat + 1}`; }
+function pickRandomBotName(takenNicknames) { return BotNames.pick(takenNicknames); }
 // Convenience: kumpulkan nicknames dari room players object.
 function getRoomNicknames(playersObj) {
   const names = new Set();
@@ -6623,6 +6648,7 @@ function getProfileController() {
         else if (room.game === 'remi') { scheduleRemiRender(room); renderRemiEndModal(room); renderRemiTournamentEnd(room); renderRemiPause(room); }
         else if (room.game === 'cangkul') renderCangkulGameView(room);
         else if (room.game === 'tebak') scheduleTebakRender(room);
+        else if (room.game === 'capsa') { if (window.CAPSA_BROWSER_HOST) getCapsaHost().observe(room); getCapsaClient().observe(room); }
         else renderGameView(room);
         renderLeaderboard(room);
       }
@@ -6641,6 +6667,52 @@ let currentRoom = null;
 let roomUnsubscribe = null;
 let lastPhase = null;  // track phase changes to trigger transitions
 let _lastRoom = null;  // latest room snapshot (used by the 1s countdown ticker)
+let _capsaClient = null;
+let _capsaHost = null;
+function getCapsaHost() {
+  if (!_capsaHost) _capsaHost = CapsaHost.create(fb, {uid: () => myUid, now: serverNow, trace: state => { const el=document.getElementById('capsaGameView'); if(el)el.dataset.hostState=state; }, error: e => showGameToast('Host Capsa: ' + e.message, 'warn', 6000)});
+  return _capsaHost;
+}
+function getCapsaClient() {
+  if (!_capsaClient) _capsaClient = CapsaUI.create({
+    uid: () => myUid, local: () => true,
+    transport: (code, packet, signal) => window.CAPSA_BROWSER_HOST ? getCapsaHost().request(code, packet, signal) : null,
+    token: () => fb.auth.currentUser.getIdToken(),
+    key: CapsaEngine.cardKey, compare: CapsaEngine.compare, standings: CapsaEngine.standings,
+    card: (card, interactive) => {
+      const n = document.createElement(interactive ? 'button' : 'div');
+      n.className = 'capsa-card ' + (SUIT_COLOR[card.suit] || 'black');
+      setSafeHTML(n, renderCardInnerHTML(card));
+      return n;
+    },
+    save: () => getRoomSaveClient().save(), exit: () => handleLeaveRoom(),
+    start: startCapsaLocal,
+    sound: () => Sound.cardDrop(),
+    voice: { join: () => Voice.join(), mute: () => Voice.toggleMute(), leave: () => Voice.leave() },
+    enter: root => {
+      pushGameHistoryGuard(); setLayoutFloatingVisible(false);
+      document.getElementById('lobbyView').classList.add('hidden');
+      document.getElementById('roomView').classList.add('hidden');
+      document.getElementById('gameView').classList.remove('show');
+      ['remiGameView','cangkulGameView','tebakGameView'].forEach(id => document.getElementById(id).classList.add('hidden'));
+      document.getElementById('app').classList.add('in-game');
+      root.style.display = '';
+      Voice.updateButtons();
+    },
+  });
+  return _capsaClient;
+}
+async function startCapsaLocal() {
+  if (!currentRoom) throw new Error('Room belum tersedia.');
+  if (window.CAPSA_BROWSER_HOST) { await getCapsaHost().start(currentRoom); return; }
+  const token = await fb.auth.currentUser.getIdToken();
+  const response = await fetch('/capsa-api/rooms/' + currentRoom, {
+    method:'POST', headers:{Authorization:'Bearer ' + token, 'Content-Type':'application/json'}, body:JSON.stringify({type:'start'}),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Capsa belum bisa dimulai.');
+  if (_capsaClient) _capsaClient.poll();
+}
 let _roomSaveClient = null;
 let _roomSaveEpoch = 0;
 function getRoomSaveClient() {
@@ -7103,7 +7175,7 @@ const Voice = (function () {
     iceCandidatePoolSize: 4,
   };
   let localStream = null;
-  let joined = false, connecting = false, muted = false;
+  let joined = false, connecting = false, muted = false, joinEpoch = 0;
   const peers = {};        // uid -> { pc, audioEl }
   let signalUnsub = null;
   let analysers = {};      // uid (or 'local') -> { ctx, analyser, data }
@@ -7111,12 +7183,14 @@ const Voice = (function () {
   const speaking = {};     // uid -> bool
 
   async function join() {
-    if (joined || connecting || !currentRoom) return;
+    if (joined || connecting || !currentRoom || !myUid || isSpectator) return;
+    const code = currentRoom, uid = myUid, attempt = ++joinEpoch;
+    const stillHere = () => attempt === joinEpoch && currentRoom === code && myUid === uid;
     connecting = true; updateButtons();
     try {
       // Audio constraints — enable browser-side processing for clean voice
       // and explicitly request mono to reduce bandwidth on cellular networks.
-      localStream = await navigator.mediaDevices.getUserMedia({
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
@@ -7125,17 +7199,28 @@ const Voice = (function () {
         },
         video: false,
       });
+      if (!stillHere()) { stream.getTracks().forEach(t => t.stop()); return; }
+      localStream = stream;
     } catch (e) {
+      if (!stillHere()) return;
       connecting = false; updateButtons();
       alert('Tidak bisa akses mikrofon. Pastikan izin mikrofon diberikan di browser.');
       return;
     }
+    const vref = fb.ref(fb.db, `rooms/${code}/voice/${uid}`);
+    try {
+      await fb.set(vref, { name: myNickname || 'Pemain', muted: false });
+    } catch (e) {
+      if (!stillHere()) return;
+      leave();
+      showGameToast('Voice belum tersambung. Coba aktifkan mikrofon lagi.', 'warn');
+      return;
+    }
+    if (!stillHere()) return;
     joined = true; connecting = false; muted = false;
-    const vref = fb.ref(fb.db, `rooms/${currentRoom}/voice/${myUid}`);
-    await fb.set(vref, { name: myNickname || 'Pemain', muted: false });
-    fb.onDisconnect(vref).remove();
+    fb.onDisconnect(vref).remove().catch(() => {});
     listenSignals();
-    setupLocalAnalyser();
+    try { setupLocalAnalyser(); } catch (e) { console.warn('Voice level meter unavailable', e); }
     startSpeakLoop();
     if (healthTimer) clearInterval(healthTimer);
     healthTimer = setInterval(healthCheck, 5000);
@@ -7145,6 +7230,7 @@ const Voice = (function () {
 
   function leave() {
     if (!joined && !connecting) return;
+    joinEpoch++;
     joined = false; connecting = false;
     if (healthTimer) { clearInterval(healthTimer); healthTimer = null; }
     Object.keys(peers).forEach(closePeer);
@@ -7464,12 +7550,14 @@ const Voice = (function () {
       { join: 'voiceJoinBtn',         mute: 'voiceMuteBtn',         leave: 'voiceLeaveBtn' },
       { join: 'cangkulVoiceJoinBtn',  mute: 'cangkulVoiceMuteBtn',  leave: 'cangkulVoiceLeaveBtn' },
       { join: 'remiVoiceJoinBtn',     mute: 'remiVoiceMuteBtn',     leave: 'remiVoiceLeaveBtn' },
+      { join: 'capsaVoiceJoinBtn',    mute: 'capsaVoiceMuteBtn',    leave: 'capsaVoiceLeaveBtn' },
     ];
     for (const s of sets) {
       const joinBtn = document.getElementById(s.join);
       const muteBtn = document.getElementById(s.mute);
       const leaveBtn = document.getElementById(s.leave);
       if (!joinBtn || !muteBtn || !leaveBtn) continue;
+      joinBtn.disabled = connecting;
       if (joined) {
         joinBtn.style.display = 'none';
         muteBtn.style.display = '';
@@ -7701,6 +7789,8 @@ function authSetError(msg) {
 }
 
 function showAuthView() {
+  if (_capsaClient) _capsaClient.stop();
+  if (_capsaHost) _capsaHost.stop();
   if (_onlinePlayers) _onlinePlayers.stop();
   if (_profileController) _profileController.stop();
   if (_roomSaveClient) _roomSaveClient.reset();
@@ -7822,7 +7912,7 @@ async function doRegister() {
     } else if (e && e.code === 'auth/weak-password') {
       authSetError('Password terlalu lemah, minimal 8 karakter');
     } else {
-      authSetError('Gagal mendaftar: ' + (e && e.message ? e.message : e));
+      authSetError(window.MAIN_KARTU_LOCAL && e && e.code === 'auth/network-request-failed' ? LocalRuntime.authError(e) : 'Gagal mendaftar: ' + (e && e.message ? e.message : e));
     }
   }
 }
@@ -7838,7 +7928,7 @@ async function doLogin() {
     try {
       const cred = await fb.signIn(authEmailFor(ADMIN_USERNAME), password);
       myUid = cred.user.uid;
-    } catch (e) { authSetError(LOGIN_FAIL_MSG); return; }
+    } catch (e) { authSetError(window.MAIN_KARTU_LOCAL ? LocalRuntime.authError(e) : LOGIN_FAIL_MSG); return; }
     if (await verifyAdminAccess()) { showAdminView(); return; }
     authSetError(LOGIN_FAIL_MSG);
     return;
@@ -7873,7 +7963,7 @@ async function doLogin() {
     if (code === 'auth/too-many-requests') {
       authSetError('Terlalu banyak percobaan gagal. Coba lagi beberapa menit.');
     } else if (code && code.startsWith('auth/')) {
-      authSetError(LOGIN_FAIL_MSG);
+      authSetError(window.MAIN_KARTU_LOCAL ? LocalRuntime.authError(e) : LOGIN_FAIL_MSG);
     } else {
       authSetError('Gagal login: ' + (e && e.message ? e.message : e));
     }
@@ -8099,7 +8189,7 @@ function getRoomCleaner() {
   });
   return _roomCleaner;
 }
-function startAutoCleanup() { getRoomCleaner().start(); }
+function startAutoCleanup() { getRoomCleaner().start(); const uid=myUid; setTimeout(() => { if (uid && myUid===uid) CapsaHost.cleanup(fb).catch(()=>{}); }, 2000); }
 function stopAutoCleanup() { if (_roomCleaner) _roomCleaner.stop(); }
 async function cleanupInactiveRooms() {
   const result = {checked: 0, deleted: 0, deletedCodes: []};
@@ -8183,7 +8273,7 @@ async function openRankModal(game) {
   const modal = document.getElementById('rankModal');
   const body = document.getElementById('rankModalBody');
   const title = document.getElementById('rankModalTitle');
-  const GAME_LABEL = { truf: 'TRUF', cangkul: 'CANGKUL', remi: 'REMI', tebak: 'TEBAK KARTU' };
+  const GAME_LABEL = { truf: 'TRUF', cangkul: 'CANGKUL', remi: 'REMI', tebak: 'TEBAK KARTU', capsa: 'CAPSA' };
   if (title) title.textContent = `🏆 Peringkat ${GAME_LABEL[game] || game.toUpperCase()}`;
   if (body) setSafeHTML(body, '<div style="text-align:center;color:rgba(244,234,213,0.5);font-family:var(--font-sans);font-size:13px;padding:24px;">Memuat...</div>');
   if (modal) modal.classList.add('show');
@@ -8514,7 +8604,12 @@ function init() {
     return;
   }
 
-  setConnectionStatus('Terhubung ke Firebase', 'success');
+  if (window.MAIN_KARTU_LOCAL) {
+    setConnectionStatus('Menghubungkan layanan uji lokal...', 'info');
+    fb.onValue(fb.ref(fb.db, '.info/connected'), snap => {
+      setConnectionStatus(snap.val() ? 'Terhubung ke layanan uji lokal' : 'Layanan uji lokal terputus', snap.val() ? 'success' : 'error');
+    });
+  } else setConnectionStatus('Terhubung ke Firebase', 'success');
   applyLayoutMode(getLayoutMode());
   attachListeners();
   getRoomSaveClient();
@@ -9130,7 +9225,7 @@ function renderLeaderboard(room) {
   const panel = document.getElementById('leaderboardPanel');
   if (!panel) return;
   // Cangkul has its own in-view standings panel — don't double up.
-  if (!room || room.phase === 'lobby' || room.game === 'cangkul') {
+  if (!room || room.phase === 'lobby' || (room.game === 'cangkul' || room.game === 'capsa')) {
     panel.style.display = 'none';
     return;
   }
@@ -9522,7 +9617,10 @@ function setGameType(g) {
   const logo = document.getElementById('appLogo');
   const tag = document.getElementById('appTagline');
   if (tag) tag.style.display = '';
-  if (g === 'cangkul') {
+  if (g === 'capsa') {
+    if (logo) logo.textContent = 'CAPSA';
+    if (tag) tag.textContent = 'Banting kartu, poin terendah terbaik';
+  } else if (g === 'cangkul') {
     if (logo) logo.textContent = 'CANGKUL';
     if (tag) tag.textContent = 'Habiskan kartu duluan';
   } else if (g === 'remi') {
@@ -9569,6 +9667,7 @@ function showGameSelect(opts) {
   try { Sound.playBgm('lobby'); } catch (e) {}
 }
 function showLobbyForGame(g, opts) {
+
   getRoomSaveClient().observe(null);
   if (!opts || !opts.skipUrlSync) {
     if (typeof routerNavigate === 'function' && ROUTER_GAMES.includes(g)) {
@@ -9586,7 +9685,7 @@ function showLobbyForGame(g, opts) {
   if (heading) heading.textContent = 'Lobby';
   // Show the fixed RANK + LOGOUT buttons for the lobby.
   const rankBtn = document.getElementById('lobbyRankBtn');
-  if (rankBtn) rankBtn.style.display = '';
+  if (rankBtn) rankBtn.style.display = g === 'capsa' ? 'none' : '';
   const _logBtn = document.getElementById('logoutBtn');
   if (_logBtn) { _logBtn.style.display = ''; _logBtn.classList.add('with-rank'); }
   // The "Aturan Permainan" modal currently only contains TRUF rules — hide it
@@ -9596,6 +9695,7 @@ function showLobbyForGame(g, opts) {
 }
 
 function attachListeners() {
+  document.getElementById('localNotice').hidden = !window.MAIN_KARTU_LOCAL;
   document.getElementById('hostControlBtn').onclick = () => {
     if (_lastRoom && !isSpectator) {
       renderHostControls(_lastRoom);
@@ -9610,6 +9710,8 @@ function attachListeners() {
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHostControl(); });
   document.getElementById('requestHostBtn').onclick = requestHostControl;
   // Game selection
+  const capsaTile = document.querySelector('[data-game="capsa"]');
+  if (capsaTile) capsaTile.hidden = false;
   document.querySelectorAll('.game-option').forEach(btn => {
     btn.addEventListener('click', () => {
       const g = btn.getAttribute('data-game');
@@ -9829,6 +9931,7 @@ async function handleCreateRoom() {
     
     // Initial room state — game type comes from currentGameType (truf default).
     const gameType = currentGameType || 'truf';
+
     const defaultMax = (gameType === 'cangkul' || gameType === 'tebak') ? 4 : 4; // cangkul/tebak: host can change; truf/remi: fixed 4
     const initialState = {
       code: roomCode,
@@ -9926,7 +10029,7 @@ async function handleJoinRoom() {
     // selected. (Prevents joining a Remi room from the TRUF lobby, etc.)
     const roomGame = room.game || 'truf';
     const wantGame = currentGameType || 'truf';
-    const GAME_LABEL = { truf: 'TRUF', cangkul: 'CANGKUL', remi: 'REMI', tebak: 'TEBAK KARTU' };
+    const GAME_LABEL = { truf: 'TRUF', cangkul: 'CANGKUL', remi: 'REMI', tebak: 'TEBAK KARTU', capsa: 'CAPSA' };
     if (roomGame !== wantGame) {
       showLobbyStatus(`Room ini permainan ${GAME_LABEL[roomGame] || roomGame.toUpperCase()} — pilih game itu dulu untuk bergabung.`, 'error');
       setBtnLoading('joinRoomBtn', false);
@@ -10022,6 +10125,8 @@ function enterRoomView(code) {
     // Ownership changes invalidate the old host's scheduled bot work.
     if (_lastRoom && _lastRoom.host !== room.host) resetHostTrackers();
     _lastRoom = room;
+    if (room.game === 'capsa') { if (window.CAPSA_BROWSER_HOST) getCapsaHost().observe(room); getCapsaClient().observe(room); }
+    else { if (_capsaClient) _capsaClient.stop(); if (_capsaHost) _capsaHost.stop(); }
     if (observeRoomSave(room)) return;
     ensureRoomMembershipIndex(room);
     renderHostControls(room);
@@ -10063,10 +10168,13 @@ function enterRoomView(code) {
         if (isTebak) exitTebakGameView();
         else if (isCangkul) exitCangkulGameView();
         else if (isRemi) exitRemiGameView();
+        else if (room.game === 'capsa') getCapsaClient().stop();
         else exitGameView();
       }
       hideAllGameModals();
       renderRoom(room);
+    } else if (room.game === 'capsa') {
+      getCapsaClient().observe(room);
     } else if (isTebak) {
       // Tebak Kartu gameplay
       if (lastPhase !== phase) enterTebakGameView(room);
@@ -10282,6 +10390,8 @@ function renderRoom(room) {
     hostHint.textContent = `Host: ${escapeHtml(seatPlayers[Object.values(players).find(p => p.uid === room.host)?.seat]?.nickname || '?')}`;
   }
 
+  // Capsa currently has one basic bot strategy; do not offer unused levels.
+  document.getElementById('difficultyRow').classList.toggle('hidden', gameType === 'capsa');
   // Difficulty selector — visible to all, editable only by host
   const diffSel = document.getElementById('botDifficulty');
   if (diffSel) {
@@ -10676,6 +10786,8 @@ async function handleLeaveRoom() {
 }
 
 function handleForceLeaveRoom() {
+  if (_capsaClient) _capsaClient.stop();
+  if (_capsaHost) _capsaHost.stop();
   if (_roomSaveClient) _roomSaveClient.reset();
   document.querySelectorAll('.modal-overlay.show').forEach(el => {
     el.classList.remove('show'); el.style.pointerEvents = ''; el.style.zIndex = '';
@@ -14631,6 +14743,11 @@ async function handleStartGame() {
     }
 
     if (room.phase !== 'lobby') { setBtnLoading('startGameBtn', false); return; }
+    if (room.game === 'capsa') {
+      await startCapsaLocal();
+      setBtnLoading('startGameBtn', false);
+      return;
+    }
     room = await getRankedClient().prepare(room);
     if (myUid !== startingUid || fb.authUid !== startingUid) { setBtnLoading('startGameBtn', false); return; }
 
@@ -18813,18 +18930,18 @@ window.addEventListener('beforeunload', (e) => {
 //   ...same for cangkul, tebak
 // Admin view stays URL-less (URL sticks at its entry point).
 // ============================================================
-const ROUTER_GAMES = ['truf', 'cangkul', 'remi', 'tebak'];
+const ROUTER_GAMES = ['truf', 'cangkul', 'remi', 'tebak', 'capsa'];
 
 function routerCurrentPath() {
   const p = (location.pathname || '/').replace(/\/+$/, '') || '/';
   return p;
 }
 function routerGameFromPath(path) {
-  const m = (path || routerCurrentPath()).match(/^\/(truf|cangkul|remi|tebak)$/);
+  const m = (path || routerCurrentPath()).match(/^\/(truf|cangkul|remi|tebak|capsa)$/);
   return m ? m[1] : null;
 }
 function routerRoomFromPath(path) {
-  const m = (path || routerCurrentPath()).match(/^\/(truf|cangkul|remi|tebak)\/([A-Z0-9]{4,6})$/i);
+  const m = (path || routerCurrentPath()).match(/^\/(truf|cangkul|remi|tebak|capsa)\/([A-Z0-9]{4,6})$/i);
   return m ? { game: m[1].toLowerCase(), code: m[2].toUpperCase() } : null;
 }
 // Navigate to a route (push a new entry). Skip pushState if URL already matches.

@@ -4,7 +4,10 @@
   "scripts": {
     "test": "node --test tests/*.test.cjs",
     "test:rules": "python3 tests/room-host-security.py && python3 tests/card-schema-security.py && python3 tests/admin-security.py && python3 tests/leaderboard-security.py && python3 tests/room-lifecycle-security.py && python3 tests/room-save-security.py && python3 tests/profile-security.py && python3 tests/online-security.py && node tests/ranked-emulator.cjs",
-    "check:render": "node scripts/check-render-safety.cjs"
+    "check:render": "node scripts/check-render-safety.cjs",
+    "dev:local": "node scripts/run-local.cjs",
+    "test:capsa:local": "CAPSA_LOCAL_TEST=1 node --test tests/capsa-local.test.cjs",
+    "local:checkpoint": "node scripts/local-state.cjs checkpoint"
   },
   "devDependencies": {
     "acorn": "8.19.0",

@@ -3,15 +3,22 @@
   const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.PlayerProfiles=api;
 })(typeof window==='object'?window:globalThis,function(){
   'use strict';
-  const ICONS=Object.freeze([
+  const CLASSIC_ICONS=[
     ['konoha','Konoha','Naruto'],['uchiha','Uchiha','Naruto'],['sharingan','Sharingan','Naruto'],['shuriken','Shuriken','Naruto'],
     ['strawhat','Topi Jerami','One Piece'],['heart','Heart Pirates','One Piece'],['whitebeard','Whitebeard','One Piece'],['redhair','Red Hair','One Piece'],
     ['scout','Sayap Kebebasan','Attack on Titan'],['garrison','Garrison','Attack on Titan'],['military','Military Police','Attack on Titan'],['cadet','Cadet Corps','Attack on Titan'],
     ['dragonball','Bola Bintang','Anime lainnya'],['flame','Pedang Api','Anime lainnya'],['blueeye','Mata Biru','Anime lainnya'],['reaper','Soul Reaper','Anime lainnya'],
-  ].map(([id,label,group],index)=>Object.freeze({id,label,group,index})));
+  ];
+  const JJK_ICONS=[
+    ['jjk-orbs','Simbol Bola'],['jjk-envelope','Surat Kutukan'],['jjk-spike','Lingkar Paku'],['jjk-car','Mobil'],
+    ['jjk-yuji','Yuji'],['jjk-swirl','Spiral Ganda'],['jjk-flame','Api Kutukan'],['jjk-shadow','Bayangan Burung'],
+    ['jjk-seal','Segel Tangan'],['jjk-wolf','Serigala Putih'],['jjk-wave','Gelombang Suara'],['jjk-nobara','Nobara'],
+    ['jjk-gojo','Gojo'],['jjk-dagger','Belati Bercabang'],
+  ].map(([id,label])=>[id,label,'JJK']);
+  const ICONS=Object.freeze([...CLASSIC_ICONS,...JJK_ICONS].map(([id,label,group],index)=>Object.freeze({id,label,group,index})));
   const validName=name=>typeof name==='string'&&/^[!-~]{4,16}$/.test(name)&&!/\s/.test(name);
   const validIcon=id=>ICONS.some(icon=>icon.id===id);
-  function fallbackIcon(uid){let hash=0;for(const c of String(uid||'player'))hash=(Math.imul(hash,31)+c.charCodeAt(0))>>>0;return ICONS[hash%ICONS.length].id;}
+  function fallbackIcon(uid){let hash=0;for(const c of String(uid||'player'))hash=(Math.imul(hash,31)+c.charCodeAt(0))>>>0;return ICONS[hash%CLASSIC_ICONS.length].id;}
   function iconFor(uid,profiles){const id=profiles?.[uid]?.avatarId;return validIcon(id)?id:fallbackIcon(uid);}
   function nameFor(player,profiles){
     const name=player&&!player.isBot&&profiles?.[player.uid]?.displayName;
@@ -24,7 +31,7 @@
   }
   function avatar(doc,id,decorative=true){
     const icon=ICONS.find(x=>x.id===id)||ICONS[0],span=doc.createElement('span');
-    span.className='player-avatar avatar-'+icon.id;
+    span.className='player-avatar avatar-'+icon.id+(icon.group==='JJK'?' avatar-jjk':'');
     if(decorative)span.setAttribute('aria-hidden','true');else{span.setAttribute('role','img');span.setAttribute('aria-label',icon.label);}
     return span;
   }

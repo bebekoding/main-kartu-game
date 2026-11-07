@@ -7,6 +7,8 @@
     "public": ".",
     "ignore": [
       "firebase.json",
+      "firebase.local.json",
+      "database.local.rules.json",
       ".firebaserc",
       "**/.*",
       "**/node_modules/**",
@@ -22,9 +24,20 @@
       "**/.*/**",
       ".git/**",
       ".claude/**",
-      ".firebase/**"
+      ".firebase/**",
+      "**/*.log",
+      "firepit-log.txt",
+      "work/**"
     ],
     "rewrites": [
+      {
+        "source": "/capsa",
+        "destination": "/truf-multiplayer-v3.html"
+      },
+      {
+        "source": "/capsa/**",
+        "destination": "/truf-multiplayer-v3.html"
+      },
       {
         "source": "/truf/**",
         "destination": "/truf-multiplayer-v3.html"
@@ -71,40 +84,121 @@
     ],
     "headers": [
       {
+        "source": "/capsa",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/capsa/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/capsa.css",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/capsa*.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
         "source": "/online-players.js",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
       },
       {
         "source": "/{player-profiles,profile-ui}.js",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
       },
       {
         "source": "/room-save*.js",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
       },
       {
         "source": "/remi-celebration.js",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
       },
       {
         "source": "**/*.m4a",
-        "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
       },
       {
         "source": "/room-lifecycle.js",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
       },
       {
         "source": "/ranked-*.js",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
       },
       {
         "source": "/game-display.js",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
       },
       {
         "source": "/vendor/dompurify/**",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
       },
       {
         "source": "**/*.html",

@@ -1,0 +1,346 @@
+.game-option[hidden] { display: none !important; }
+.capsa-view { min-height: 100dvh; padding: 12px max(16px,env(safe-area-inset-right)) max(30px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left)); background: var(--felt-dark); color: var(--cream); font-family: var(--font-sans); }
+.capsa-view.hidden { display: none !important; }
+.capsa-top { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px; max-width: 1200px; margin: 0 auto 12px; padding: 52px 0 12px; border-bottom: 1px solid rgba(212,168,75,.4); }
+.capsa-top h1 { margin: 0; padding-bottom: 3px; font: italic 800 28px/1.15 var(--font-display); color: var(--gold-bright); }
+.capsa-meta { flex: 1; max-width: 65ch; margin: 0; font: 11px/1.6 var(--font-mono); }
+.capsa-tools,.capsa-actions { display: flex; gap: 8px; }
+.capsa-tools { min-width: 0; flex-wrap: wrap; }
+.capsa-view button { touch-action: manipulation; }
+.capsa-view .btn { min-height: 44px; padding: 9px 16px; white-space: nowrap; width: auto; margin: 0; font: 600 13px/1.3 var(--font-sans); text-transform: none; letter-spacing: normal; }
+.capsa-view .capsa-tools .btn,.capsa-view .capsa-actions .btn { margin: 0; }
+.capsa-view button:focus-visible { outline: 3px solid var(--gold-bright); outline-offset: 3px; }
+.capsa-board { display: flex; flex-direction: column; gap: 14px; max-width: 1200px; margin: auto; }
+.capsa-table { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 16px; min-width: 0; min-height: 290px; padding: 20px; text-align: center; border: 1px solid rgba(212,168,75,.35); border-radius: var(--radius-panel); background: var(--felt); }
+.capsa-turn-info { display: flex; justify-content: center; align-items: baseline; flex-wrap: wrap; gap: 4px 16px; }
+.capsa-status { margin: 0; font-size: 15px; line-height: 1.5; max-width: 65ch; }
+.capsa-clock { font: 600 18px/1.5 var(--font-mono); margin: 0; color: var(--gold-bright); white-space: nowrap; }
+.capsa-table-label { margin: 4px 0 0; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.capsa-table-cards { display: flex; justify-content: center; gap: 10px; align-items: center; min-height: 132px; width: 100%; }
+.capsa-table-cards > .capsa-hint { max-width: 35ch; }
+.capsa-round-win { grid-column: 1 / -1; text-align: center; padding: 2px 0; }
+.capsa-win-title { margin: 0; font: 700 28px/1.25 var(--font-sans); color: var(--gold-bright); overflow-wrap: anywhere; text-wrap: balance; }
+.capsa-win-timer { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 8px 0 0; font: 13px/1.5 var(--font-mono); }
+.capsa-history { min-width: 0; width: min(760px,calc(100% - 32px)); max-height: calc(100dvh - 40px); margin: auto; padding: 20px; border: 1px solid var(--gold); border-radius: var(--radius-panel); background: var(--felt-dark); color: var(--cream); overflow-y: auto; }
+.capsa-history::backdrop { background: rgba(5,18,14,.8); }
+.capsa-history-top .btn { margin: 0; }
+.capsa-history-clock { margin: 12px 0; font: 12px/1.5 var(--font-mono); color: var(--gold-bright); }
+.capsa-seats { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }
+.capsa-seat { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 8px 10px; border-bottom: 1px solid rgba(244,234,213,.2); font-size: 13px; }
+.capsa-seat strong { line-height: 1.4; overflow-wrap: anywhere; }
+.capsa-seat span { font: 11px/1.5 var(--font-mono); }
+.capsa-seat small { min-height: 15px; font-size: 11px; }
+.capsa-seat.is-turn { border-bottom-color: var(--gold-bright); background: var(--felt); border-radius: var(--radius-control); }
+.capsa-seat.is-turn small { color: var(--gold-bright); }
+.capsa-history-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.capsa-history h2,.capsa-hand-top h2 { margin: 0; font: 600 15px/1.5 var(--font-sans); }
+.capsa-history-count { font: 11px/1.5 var(--font-mono); white-space: nowrap; }
+.capsa-history-note { font-size: 11px; line-height: 1.5; margin: 3px 0 8px; color: var(--cream); }
+.capsa-history-list { display: grid; gap: 8px; }
+.capsa-history-round { min-width: 0; border: 1px solid rgba(212,168,75,.35); border-radius: var(--radius-control); }
+.capsa-history-round > summary { padding: 12px; cursor: pointer; color: var(--gold-bright); }
+.capsa-history-round > summary:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: -2px; }
+.capsa-history-round > summary .capsa-history-count { float: inline-end; color: var(--cream); }
+.capsa-history-play { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid rgba(212,168,75,.18); }
+.capsa-history-play-label { display: grid; gap: 2px; overflow-wrap: anywhere; font-size: 13px; }
+.capsa-history-play-label small { color: var(--gold-bright); font-size: 11px; }
+.capsa-history-cards { display: flex; gap: 4px; }
+.capsa-history-empty { margin: 8px 0; font-size: 13px; }
+.capsa-history-card { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; width: 34px; height: 48px; border-radius: var(--radius-tiny); border: 2px solid transparent; background: var(--ivory); color: var(--ink); font: 600 18px/1.05 var(--font-serif); }
+.capsa-history-card.red { color: var(--red); }
+.capsa-history-card > span { font-size: 20px; }
+.capsa-history-card.is-latest { border-color: var(--gold-bright); box-shadow: 0 0 0 1px var(--gold); }
+.capsa-actions { justify-content: center; flex-wrap: wrap; max-width: 1200px; margin: 12px auto 8px; }
+.capsa-hint { max-width: 75ch; margin: 6px auto; text-align: center; font-size: 12px; line-height: 1.5; color: var(--cream); }
+.capsa-hand-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; max-width: 1200px; margin: 12px auto 0; }
+.capsa-hand-top > span { font-size: 11px; line-height: 1.5; }
+.capsa-hand { display: flex; gap: 6px; flex-wrap: wrap; max-width: 1200px; margin: auto; padding: 14px 4px 8px; align-items: flex-end; min-height: 116px; }
+.capsa-view .capsa-card { display: block; position: relative; flex: 0 0 72px; width: 72px; height: 102px; border-radius: var(--radius-control); background: var(--ivory); color: var(--ink); border: 2px solid transparent; padding: 0; overflow: hidden; box-shadow: 0 3px 5px rgba(0,0,0,.25); }
+.capsa-view .capsa-card.red { color: var(--red); }
+.capsa-view .capsa-table-cards .capsa-card { width: 92px; flex: 0 1 92px; max-width: 92px; min-width: 0; height: auto; aspect-ratio: 5 / 7; }
+.capsa-table-cards .card-tl,.capsa-table-cards .card-br { font-size: 18px; }
+.capsa-table-cards .card-center { font-size: 36px; }
+.capsa-view button.capsa-card { cursor: pointer; transition: transform .16s ease-out,border-color .16s ease-out; }
+.capsa-view button.capsa-card:hover:not(:disabled) { transform: translateY(-4px); }
+.capsa-view button.capsa-card.selected { border-color: var(--gold-bright); transform: translateY(-8px); box-shadow: 0 0 0 2px var(--gold); }
+.capsa-view button.capsa-card:disabled { cursor: default; opacity: .85; }
+.capsa-card .card-art { width: 100%; height: 100%; object-fit: fill; }
+.capsa-card .card-content { height: 100%; }
+.capsa-card .card-center { font-size: 26px; }
+.capsa-card .card-tl,.capsa-card .card-br { font-size: 14px; }
+.capsa-error { text-align: center; font-size: 14px; line-height: 1.5; color: #ffb4ab; max-width: 65ch; margin: 8px auto; }
+.capsa-results { grid-column: 1 / -1; text-align: center; font: 12px/1.5 var(--font-mono); }
+.capsa-results p { margin: 4px 0; }
+.capsa-view > .btn { display: block; margin: auto; }
+.capsa-view [hidden] { display: none !important; }
+@media (max-width:900px) {
+ .capsa-history-card { height: 40px; font-size: 16px; }
+ .capsa-history-card > span { font-size: 18px; }
+}
+@media (max-width:700px) {
+ .capsa-view { padding: 6px 10px max(52px,env(safe-area-inset-bottom)); }
+ .capsa-top { gap: 6px 10px; padding-top: 52px; padding-bottom: 8px; margin-bottom: 8px; }
+ .capsa-top h1 { font-size: 24px; }
+ .capsa-meta { font-size: 9px; min-width: 180px; }
+ .capsa-tools { width: 100%; }
+ .capsa-tools .btn { flex: 1; min-height: 36px; padding: 8px 12px; font-size: 12px; }
+ .capsa-board { gap: 10px; }
+ .capsa-table { min-height: 216px; padding: 14px 10px; gap: 10px; }
+ .capsa-turn-info { justify-content: center; gap: 2px 8px; }
+ .capsa-status { font-size: 12px; }
+ .capsa-clock { font-size: 16px; }
+ .capsa-table-label { font-size: 10px; margin: 3px 0 6px; }
+ .capsa-table-cards { gap: 4px; min-height: 84px; }
+ .capsa-view .capsa-table-cards .capsa-card { width: 58px; flex-basis: 58px; max-width: 58px; height: auto; }
+ .capsa-seats { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 4px 8px; }
+ .capsa-seat { padding: 6px 8px; gap: 2px; font-size: 11px; }
+ .capsa-seat span,.capsa-seat small { font-size: 10px; }
+ .capsa-history { padding: 14px 10px; width: calc(100% - 20px); }
+ .capsa-history-top { flex-wrap: wrap; gap: 8px; }
+ .capsa-history-top h2 { flex: 1; }
+ .capsa-history-top .btn { min-height: 36px; padding: 8px 12px; }
+ .capsa-table-cards .card-tl,.capsa-table-cards .card-br { font-size: 13px; }
+ .capsa-table-cards .card-center { font-size: 25px; }
+ .capsa-win-title { font-size: 22px; }
+ .capsa-win-timer { font-size: 11px; margin-top: 6px; }
+ .capsa-round-win { padding: 14px 0; }
+ .capsa-history h2,.capsa-hand-top h2 { font-size: 13px; }
+ .capsa-history-note { font-size: 10px; margin-bottom: 6px; }
+ .capsa-history-count { font-size: 10px; }
+ .capsa-history-list { gap: 6px; }
+ .capsa-history-card { width: 24px; height: 32px; font-size: 13px; border-width: 1px; }
+ .capsa-history-card > span { font-size: 15px; }
+ .capsa-actions { margin: 10px auto 6px; }
+ .capsa-actions > .btn { flex: 1 1 auto; }
+ .capsa-hint { font-size: 10px; margin: 5px auto; }
+ .capsa-hand-top { margin-top: 10px; }
+ .capsa-hand-top > span { font-size: 10px; }
+ .capsa-hand { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 4px; padding: 12px 0 5px; min-height: 74px; }
+ .capsa-view .capsa-hand .capsa-card { width: 100%; height: auto; aspect-ratio: 5 / 7; }
+ .capsa-card .card-tl,.capsa-card .card-br { font-size: 11px; }
+ .capsa-card .card-center { font-size: 20px; }
+}
+@media (max-width:380px) {
+ .capsa-history-card { font-size: 12px; }
+ .capsa-history-card > span { font-size: 13px; }
+}
+@media (prefers-reduced-motion:reduce) { .capsa-view button.capsa-card { transition: none; } }
+.local-notice { color: var(--cream); font: 13px/1.5 var(--font-sans); margin: 0 0 16px; text-align: center; }
+.local-notice[hidden] { display: none; }
+
+.capsa-win-seconds { font: 700 32px/1 var(--font-mono); color: var(--gold-bright); }
+
+/* Scope card faces above shared mobile game styles. */
+.capsa-view .capsa-card .card-br { display: flex; }
+.capsa-view .capsa-card .card-tl .r,.capsa-view .capsa-card .card-br .r { font-size: 18px; }
+.capsa-view .capsa-card .card-tl .s,.capsa-view .capsa-card .card-br .s { font-size: 14px; }
+.capsa-view .capsa-card .card-center { font-size: 30px; }
+.capsa-view .capsa-table-cards .card-center { font-size: 38px; }
+.capsa-view .capsa-table-cards .card-tl .r,.capsa-view .capsa-table-cards .card-br .r { font-size: 22px; }
+.capsa-view .capsa-table-cards .card-tl .s,.capsa-view .capsa-table-cards .card-br .s { font-size: 18px; }
+@media (max-width:700px) {
+ .capsa-view .capsa-card .card-tl .r,.capsa-view .capsa-card .card-br .r { font-size: 13px; }
+ .capsa-view .capsa-card .card-tl .s,.capsa-view .capsa-card .card-br .s { font-size: 10px; }
+ .capsa-view .capsa-card .card-center { font-size: 21px; }
+ .capsa-view .capsa-table-cards .card-center { font-size: 27px; }
+ .capsa-view .capsa-table-cards .card-tl .r,.capsa-view .capsa-table-cards .card-br .r { font-size: 16px; }
+ .capsa-view .capsa-table-cards .card-tl .s,.capsa-view .capsa-table-cards .card-br .s { font-size: 12px; }
+}
+
+/* Four player stations: icon first, exposed cards directly beneath it. */
+.capsa-top,.capsa-board { max-width: 1400px; }
+.capsa-board { display: flex; flex-direction: column; gap: 14px; }
+.capsa-table { min-height: 440px; padding: 18px; gap: 10px; }
+.capsa-table-cards { display: grid; grid-template-columns: minmax(0,1fr) 240px minmax(0,1fr); grid-template-areas: ". north ." "west direction east" ". south ."; align-items: start; gap: 12px 22px; width: 100%; min-height: 0; }
+.capsa-seats,.capsa-self-info { display: contents; }
+.capsa-seat { display: flex; flex-direction: column; align-items: center; gap: 4px; align-self: start; min-width: 0; border: 1px solid rgba(212,168,75,.35); border-radius: var(--radius-panel); background: var(--felt-dark); padding: 10px 8px; text-align: center; }
+.capsa-seat[data-position="north"] { grid-area: north; }
+.capsa-seat[data-position="west"] { grid-area: west; }
+.capsa-seat[data-position="east"] { grid-area: east; }
+.capsa-seat[data-position="south"] { grid-area: south; }
+.capsa-seat.is-turn { border-color: var(--gold-bright); background: var(--felt-light); }
+.capsa-seat > strong,.capsa-seat > .profile-player-name { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; max-width: 100%; font: 600 13px/1.4 var(--font-sans); overflow-wrap: anywhere; }
+.capsa-seat .player-avatar { display: inline-block; flex: 0 0 48px; width: 48px; height: 48px; margin: 0; }
+.capsa-seat-state { min-height: 15px; }
+.capsa-seat-plays { display: flex; flex-wrap: wrap; align-items: start; justify-content: center; gap: 5px; width: 100%; min-height: 58px; margin-top: 5px; }
+.capsa-play-group { display: flex; gap: 2px; max-width: 100%; border: 1px solid rgba(244,234,213,.18); border-radius: var(--radius-control); padding: 3px; }
+.capsa-play-group.is-latest { border-color: var(--gold-bright); background: rgba(212,168,75,.14); }
+.capsa-laid-card { width: 34px; height: 48px; flex: 0 1 34px; min-width: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: var(--radius-tiny); background: var(--ivory); color: var(--ink); font: 600 17px/1.05 var(--font-serif); }
+.capsa-laid-card > span { font-size: 20px; }
+.capsa-laid-card.red { color: var(--red); }
+.capsa-pass { flex: 1 0 100%; color: #ffaaa2; font: 800 16px/1.5 var(--font-sans); }
+.capsa-direction { grid-area: direction; align-self: center; justify-self: center; color: var(--gold-bright); font: 48px/1 var(--font-sans); }
+.capsa-south { min-width: 0; }
+.capsa-table-label { margin: 0; }
+.capsa-south .capsa-hand { justify-content: center; max-width: 1200px; }
+.capsa-south .capsa-hand-top { margin-top: 10px; }
+.capsa-south .capsa-actions { margin-top: 8px; }
+.capsa-south > .capsa-error { margin-top: 6px; }
+.capsa-south > .btn { display: block; margin: 8px auto; }
+@media (max-width:1000px) {
+ .capsa-table-cards { grid-template-columns: minmax(0,1fr) 200px minmax(0,1fr); gap: 10px; }
+ .capsa-laid-card { width: 29px; flex-basis: 29px; height: 42px; font-size: 15px; }
+}
+@media (max-width:700px) {
+ .capsa-table { padding: 10px 6px; min-height: 0; gap: 6px; }
+ .capsa-table-cards { grid-template-columns: minmax(0,1fr) 24px minmax(0,1fr); grid-template-areas: "north north north" "west direction east" "south south south"; gap: 8px 4px; }
+ .capsa-seat { padding: 7px 4px; gap: 2px; }
+ .capsa-seat[data-position="north"],.capsa-seat[data-position="south"] { width: min(190px,100%); justify-self: center; }
+ .capsa-seat > strong,.capsa-seat > .profile-player-name { font-size: 11px; gap: 3px; }
+ .capsa-seat .player-avatar { width: 36px; height: 36px; flex-basis: 36px; }
+ .capsa-seat span,.capsa-seat small { font-size: 9px; }
+ .capsa-seat-plays { min-height: 40px; margin-top: 3px; gap: 3px; }
+ .capsa-play-group { padding: 2px; gap: 1px; border-radius: var(--radius-tiny); }
+ .capsa-laid-card { width: 23px; flex-basis: 23px; height: 34px; font-size: 13px; }
+ .capsa-laid-card > span { font-size: 16px; }
+ .capsa-pass { font-size: 14px; }
+ .capsa-direction { font-size: 26px; }
+ .capsa-status { font-size: 11px; }
+ .capsa-clock { font-size: 14px; }
+ .capsa-table-label { font-size: 9px; line-height: 1.5; }
+ .capsa-win-title { font-size: 18px; }
+ .capsa-win-timer { font-size: 10px; flex-wrap: wrap; gap: 5px; }
+ .capsa-round-win { padding: 4px 0; }
+ .capsa-south .capsa-hand-top { margin-top: 8px; }
+}
+
+/* Truf-style score card with native modal focus handling. */
+.capsa-score-dialog { position: fixed; inset: 0; margin: auto; width: min(520px,92vw); max-width: 92vw; max-height: 85dvh; overflow-y: auto; padding: 24px; border: 2px solid var(--gold); border-radius: var(--radius-panel); background: linear-gradient(135deg,#1c4a37,#143628); color: var(--cream); }
+.capsa-score-dialog::backdrop { background: rgba(5,18,14,.78); backdrop-filter: blur(6px); }
+.capsa-score-dialog h3 { font: 600 15px/1.5 var(--font-sans); margin: 16px 0 10px; }
+.capsa-score-dialog .scoreboard { width: 100%; border-collapse: collapse; font: 12px/1.5 var(--font-mono); }
+.capsa-score-dialog th,.capsa-score-dialog td { text-align: right; padding: 10px 6px; border-bottom: 1px solid rgba(212,168,75,.25); }
+.capsa-score-dialog th { color: var(--gold-bright); }
+.capsa-score-dialog td.name { text-align: left; overflow-wrap: anywhere; max-width: 160px; }
+.capsa-score-dialog .player-avatar { vertical-align: middle; margin-right: 5px; }
+.capsa-score-dialog .winner-row { background: rgba(240,198,104,.12); }
+.capsa-score-dialog > .btn { display: block; margin: 18px auto 0; }
+@media(max-width:700px){.capsa-tools { flex-wrap: wrap; }.capsa-tools .btn { flex: 1 1 40%; }.capsa-score-dialog { padding: 18px 12px; }.capsa-score-dialog th,.capsa-score-dialog td { padding: 8px 4px; font-size: 10px; }}
+
+/* Use the same game selection structure and gold treatment as existing tiles. */
+.game-option[data-game="capsa"] { --go-glow: rgba(240,198,104,.30); animation-delay: .34s; }
+.game-option[data-game="capsa"]::before { background: linear-gradient(180deg,#f0c668,#d4a84b); }
+.game-option[data-game="capsa"]::after { content: '\2660'; }
+@media(min-width:701px){
+ .capsa-table-cards { grid-template-columns: repeat(3,minmax(0,1fr)); grid-auto-rows: 1fr; }
+ .capsa-seat { width: min(240px,100%); height: 100%; box-sizing: border-box; justify-self: center; }
+}
+.capsa-score-ready { font: 12px/1.7 var(--font-sans); overflow-wrap: anywhere; margin: 16px 0 0; }
+.capsa-score-dialog .capsa-confirm-round,.capsa-score-dialog .capsa-next-round { width: 100%; }
+
+/* Desktop play surface: use the viewport width, keep the hand and actions visible. */
+@media (min-width:901px) and (min-height:540px) {
+ body:has(> .capsa-view:not(.hidden)) { height: 100dvh; min-height: 0; overflow: hidden; }
+ .capsa-view { width: 100%; height: 100dvh; min-height: 0; padding: 8px 20px 10px; display: grid; grid-template-rows: auto minmax(0,1fr); gap: 10px; }
+ .capsa-top { width: 100%; max-width: none; display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 14px; margin: 0; padding: 6px 200px 10px 0; }
+ .capsa-top h1 { font-size: 30px; }
+ .capsa-meta { font-size: 13px; line-height: 1.6; max-width: none; }
+ .capsa-tools .btn { min-height: 44px; padding: 9px 13px; font-size: 14px; }
+ .capsa-board { width: 100%; max-width: none; min-height: 0; display: grid; grid-template-rows: minmax(0,1fr) auto; gap: 10px; }
+ .capsa-table { min-height: 0; min-width: 0; padding: 10px 12px; display: grid; grid-template-rows: auto auto minmax(0,1fr); align-items: stretch; gap: 6px; }
+ .capsa-table:has(> .capsa-table-label[hidden]) { grid-template-rows: auto minmax(0,1fr); }
+ .capsa-turn-info { align-items: center; }
+ .capsa-status { font-size: 16px; line-height: 1.4; }
+ .capsa-clock { font-size: 22px; line-height: 1.2; }
+ .capsa-table-label { font-size: 13px; line-height: 1.4; }
+ .capsa-table-cards { position: relative; min-height: 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: repeat(2,minmax(0,1fr)); grid-template-areas: 'west north' 'south east'; grid-auto-rows: auto; gap: 12px; align-items: stretch; }
+ .capsa-seat { width: 100%; height: 100%; min-height: 0; padding: 8px 10px; justify-self: stretch; align-self: stretch; display: grid; grid-template-columns: minmax(0,1fr) auto; grid-template-rows: auto minmax(0,1fr); align-items: center; gap: 6px 10px; text-align: left; }
+ .capsa-seat > strong,.capsa-seat > .profile-player-name { display: flex; flex-direction: row; justify-content: flex-start; align-items: center; gap: 9px; font-size: 17px; line-height: 1.3; }
+ .capsa-seat .player-avatar { width: 42px; height: 42px; flex-basis: 42px; }
+ .capsa-seat-details { text-align: right; }
+ .capsa-seat-details > span { display: block; font: 14px/1.4 var(--font-mono); }
+ .capsa-seat-details .capsa-seat-state { display: block; min-height: 0; font-size: 13px; line-height: 1.4; }
+ .capsa-seat-plays { grid-column: 1 / -1; min-height: 0; max-height: 100%; margin: 0; padding: 2px; gap: 5px; align-self: stretch; align-items: center; align-content: center; overflow-y: auto; overscroll-behavior: contain; }
+ .capsa-play-group { gap: 2px; padding: 3px; }
+ .capsa-laid-card { width: 44px; flex-basis: 44px; height: 62px; font-size: 23px; }
+ .capsa-laid-card > span { font-size: 25px; }
+ .capsa-pass { font-size: 22px; text-align: center; }
+ .capsa-direction { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--felt); font-size: 26px; pointer-events: none; }
+ .capsa-round-win { grid-column: auto; padding: 0; }
+ .capsa-win-title { font-size: 22px; line-height: 1.3; }
+ .capsa-win-timer { margin: 2px 0 0; font-size: 12px; line-height: 1.3; }
+ .capsa-win-seconds { font-size: 22px; }
+ .capsa-results { display: none; }
+ .capsa-south { min-height: 0; display: grid; gap: 5px; padding: 8px 12px 0; border-top: 1px solid rgba(212,168,75,.35); }
+ .capsa-south .capsa-hand-top { width: 100%; max-width: none; margin: 0; }
+ .capsa-hand-top h2 { font-size: 16px; }
+ .capsa-hand-top > span { font-size: 13px; }
+ .capsa-south .capsa-hand { width: 100%; min-height: 0; max-width: none; display: flex; flex-wrap: nowrap; align-items: flex-end; justify-content: center; gap: 6px; padding: 8px 0 2px; }
+ .capsa-view .capsa-hand .capsa-card { width: min(6.5vw,106px); flex: 0 1 min(6.5vw,106px); max-width: 106px; min-width: 0; height: auto; aspect-ratio: 5 / 7; }
+ .capsa-view .capsa-hand .capsa-card .card-tl .r,.capsa-view .capsa-hand .capsa-card .card-br .r { font-size: 20px; }
+ .capsa-view .capsa-hand .capsa-card .card-tl .s,.capsa-view .capsa-hand .capsa-card .card-br .s { font-size: 16px; }
+ .capsa-view .capsa-hand .capsa-card .card-center { font-size: 34px; }
+ .capsa-south .capsa-actions { width: 100%; max-width: none; margin: 3px auto 0; gap: 10px; }
+ .capsa-actions .btn { min-height: 44px; min-width: 140px; font-size: 16px; padding: 10px 22px; }
+ .capsa-south .capsa-hint { margin: 0 auto; font-size: 12px; line-height: 1.3; }
+ .capsa-south .capsa-error:empty { display: none; }
+ .capsa-south .capsa-error { margin: 0 auto; font-size: 13px; }
+ .capsa-view .capsa-score-dialog { width: min(640px,92vw); max-height: 90dvh; padding: 24px; }
+ .capsa-score-dialog .scoreboard { font-size: 15px; }
+ .capsa-score-dialog th,.capsa-score-dialog td { padding: 11px 8px; }
+}
+@media (min-width:901px) and (min-height:540px) and (max-height:740px) {
+ .capsa-view { padding: 6px 12px; gap: 6px; }
+ .capsa-top { padding-bottom: 6px; }
+ .capsa-board { gap: 6px; }
+ .capsa-table { padding: 7px; gap: 4px; }
+ .capsa-status { font-size: 14px; }
+ .capsa-clock { font-size: 20px; }
+ .capsa-table-label { font-size: 12px; }
+ .capsa-table-cards { gap: 8px; }
+ .capsa-seat { padding: 5px 8px; gap: 4px 8px; }
+ .capsa-seat > strong,.capsa-seat > .profile-player-name { font-size: 15px; }
+ .capsa-seat .player-avatar { width: 32px; height: 32px; flex-basis: 32px; }
+ .capsa-seat-details > span { font-size: 12px; }
+ .capsa-seat-details .capsa-seat-state { font-size: 12px; }
+ .capsa-laid-card { width: 36px; flex-basis: 36px; height: 48px; font-size: 20px; }
+ .capsa-laid-card > span { font-size: 21px; }
+ .capsa-play-group { padding: 2px; }
+ .capsa-south { padding-top: 5px; gap: 3px; }
+ .capsa-view .capsa-hand .capsa-card { max-width: 78px; }
+ .capsa-win-title { font-size: 19px; }
+}
+@media (min-width:901px) and (min-height:540px) {
+ .capsa-board { margin: 0; align-self: stretch; }
+ .capsa-table { grid-template-columns: minmax(0,1fr); justify-content: stretch; }
+}
+@media (min-width:901px) and (min-height:741px) {
+ .capsa-laid-card { width: min(3.6vw,64px); flex-basis: min(3.6vw,64px); height: auto; aspect-ratio: 5 / 7; font-size: 26px; }
+ .capsa-laid-card > span { font-size: 28px; }
+}
+@media (min-width:901px) and (min-height:540px) and (max-height:740px) {
+ .capsa-laid-card { width: 44px; flex-basis: 44px; height: 60px; font-size: 24px; }
+ .capsa-laid-card > span { font-size: 26px; }
+}
+@supports (height: 1cqh) {
+ @media (min-width:901px) and (min-height:540px) {
+  .capsa-seat { container-type: size; }
+  .capsa-laid-card { width: auto; flex: 0 0 auto; height: clamp(48px,calc(100cqh - 72px),110px); aspect-ratio: 5 / 7; font-size: 28px; }
+  .capsa-laid-card > span { font-size: 30px; }
+  .capsa-seat-plays.is-dense .capsa-laid-card { height: clamp(44px,calc((100cqh - 72px) / 2),90px); font-size: 21px; }
+  .capsa-seat-plays.is-dense .capsa-laid-card > span { font-size: 23px; }
+ }
+}
+
+.capsa-seat-details { display: grid; gap: 2px; }
+.capsa-seat-details .capsa-seat-state:empty { display: none; }
+.capsa-view #capsaVoiceMuteBtn.muted { color: #ffaaa2; }
+.capsa-view .capsa-tools .btn { white-space: nowrap; }
+.capsa-seat-plays:has(.capsa-revealed-hand) { align-content: safe center; }
+.capsa-revealed-hand { flex: 1 0 100%; min-width: 0; display: grid; gap: 3px; justify-items: center; padding-bottom: 4px; }
+.capsa-revealed-label { color: var(--gold-bright); font-size: 11px; }
+.capsa-revealed-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; }
+.capsa-revealed-cards .capsa-revealed-card { flex: 0 0 auto; width: clamp(19px,2.5vw,32px); height: auto; aspect-ratio: 5 / 7; font-size: 15px; }
+.capsa-revealed-cards .capsa-revealed-card > span { font-size: 16px; }
+
+@media (min-width:901px) and (max-width:1100px) and (min-height:540px) {
+ .capsa-top { grid-template-columns: auto minmax(0,1fr); padding-right: 0; }
+ .capsa-meta { padding-right: 200px; }
+ .capsa-tools { grid-column: 1 / -1; }
+}
+
+.capsa-final-note { margin: 16px 0 0; font: 13px/1.5 var(--font-sans); }
+.capsa-final-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.capsa-score-dialog .capsa-final-actions .btn { flex: 1 1 145px; width: auto; margin: 0; min-height: 44px; }
+.capsa-score-dialog .modal-title:focus { outline: none; }
+.capsa-score-dialog .scoreboard th:nth-child(2) { text-align: left; }

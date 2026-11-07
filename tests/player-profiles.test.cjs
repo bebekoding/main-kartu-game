@@ -7,8 +7,8 @@ test('4–16 letters, digits and keyboard symbols are valid without trimming or 
   for(const value of ['Abcd','A'.repeat(16),'1234','!!!!','.#[]','/@#$','<>"\'','MiFty_07!'])assert.equal(P.validName(value),true,value);
   for(const value of ['', 'abc','a'.repeat(17),'ab cd','abcd\n',' abcde','abcd ','abcd\t','ab\u00a0cd','ab\u200bcd','ab\u202ecd','ab\x00cd','ab\x7fcd',null,1234])assert.equal(P.validName(value),false,String(value));
 });
-test('only sixteen curated IDs resolve to avatars; URL and class injection cannot be used',()=>{
-  assert.equal(P.ICONS.length,16);assert.equal(new Set(P.ICONS.map(i=>i.id)).size,16);
+test('only curated IDs resolve to avatars; URL and class injection cannot be used',()=>{
+  assert.equal(P.ICONS.length,30);assert.equal(new Set(P.ICONS.map(i=>i.id)).size,30);
   assert.equal(P.fallbackIcon('p0'),P.fallbackIcon('p0'));
   for(const value of ['https://bad/image.png','x y','<img>',null])assert.equal(P.validIcon(value),false);
   const dom=new JSDOM('<body>'),el=P.avatar(dom.window.document,'x onclick=bad',false);
@@ -36,12 +36,17 @@ function harness(){
   return{dom,doc,api,fb,writes,events,profiles,watchers,input,type,fail:v=>{fail=v;},identity:value=>{actor=value;fb.authUid=value;},close(){api.stop();dom.window.close();}};
 }
 test('actual profile UI saves chosen template and symbolic name under UID, never under login or leaderboard keys',async()=>{
-  const h=harness();await h.api.open();assert.equal(h.doc.querySelectorAll('.profile-icon-choice').length,16);
+  const h=harness();await h.api.open();assert.equal(h.doc.querySelectorAll('.profile-icon-choice').length,30);
+  [...h.doc.querySelectorAll('.profile-filter')].find(button=>button.textContent==='JJK').click();
+  assert.equal(h.doc.querySelectorAll('.profile-icon-choice').length,14);
   assert.match(h.doc.getElementById('profileLoginName').textContent,/old_login/);
-  h.type('Ace@#[]!');h.doc.querySelector('[data-avatar-id="strawhat"]').click();await h.api.submit();
-  assert.deepEqual(h.writes,[{p:'profiles/p0',v:{displayName:'Ace@#[]!',avatarId:'strawhat',updatedAt:{'.sv':'timestamp'}}}]);
+  h.type('Ace@#[]!');h.doc.querySelector('[data-avatar-id="jjk-gojo"]').click();await h.api.submit();
+  assert.deepEqual(h.writes,[{p:'profiles/p0',v:{displayName:'Ace@#[]!',avatarId:'jjk-gojo',updatedAt:{'.sv':'timestamp'}}}]);
   assert.equal(h.doc.getElementById('profileModal').hidden,true);assert.ok(h.events.includes('saved'));
-  assert.match(h.doc.querySelector('[data-profile-open]').textContent,/Ace@#\[\]!/);h.close();
+  assert.match(h.doc.querySelector('[data-profile-open]').textContent,/Ace@#\[\]!/);
+  await h.api.open();
+  assert.ok(h.doc.getElementById('profilePreview').querySelector('.avatar-jjk-gojo'));
+  h.close();
 });
 test('cancel discards edits, invalid names disable save, and a network failure keeps the draft',async()=>{
   const h=harness();await h.api.open();h.type('Too Long Profile Name');assert.equal(h.doc.getElementById('profileSaveBtn').disabled,true);

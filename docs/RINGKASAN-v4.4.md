@@ -1,27 +1,21 @@
-# Main Kartu — handoff persiapan V4.4
+# Main Kartu 4.4 — handoff tampilan
 
-Tanggal: 2 November 2026. Baseline kode: `46df17f` pada `main`.
-Status: persiapan V4.4, bukan pengumuman rilis game kelima.
+Workspace aktif adalah Main Kartu 4.4. Lima game sudah tersedia di Hosting Main Kartu. Fokus kickoff 4.4 berikutnya adalah merapikan tampilan masing-masing game melalui audit dan preview bertahap.
 
-## Keputusan produk
+## Titik mulai
 
-- Empat game yang sudah tersedia: Truf (4), Cangkul (3–6), Remi (4), Tebak Kartu (4–6).
-- Game kelima bernama **Capsa, tepat 4 pemain**, dengan mekanisme varian Banting. Aturan harus diteliti di internet dan diverifikasi pengguna sebelum implementasi. Lihat [draft Capsa](CAPSA_RULES_DRAFT.md).
-- Revisi Capsa pengguna: tanpa triple mandiri; bomb = empat rank sama + satu bebas. Setelah bomb tak dilawan, pemilik boleh membalik kekuatan sampai akhir ronde. Semua lawan pass membuka meja baru, bukan mengakhiri ronde. Sisa kartu ×10; poin terendah terbaik; sesi berhenti pada skor >=250. Detail draft internet yang bertentangan dicabut. Lihat draft untuk detail lanjutan yang masih terbuka.
-- Arah giliran Capsa bergantian per ronde/pembagian: pertama searah jarum jam, berikutnya berlawanan, lalu searah, dan seterusnya. Terpisah dari pembalikan kekuatan bomb. Timer Capsa **15 detik per giliran pemain**; nama tampilan **Capsa**.
-- Tetap menggunakan layanan Firebase saat ini; hasil leaderboard disahkan melalui persetujuan semua pemain manusia, bukan simulasi seluruh permainan di server.
-- Nama profil hanya nama tampilan; akun login lama tetap digunakan.
+- Produksi: https://main-kartu-game.web.app. Rute game: `/truf`, `/cangkul`, `/remi`, `/tebak`, `/capsa`. Rute room menambahkan `/KODE`.
+- Repo: https://github.com/bebekoding/main-kartu-game. Commit terakhir yang terlihat di checkout dan referensi lokal `origin/main` adalah `57baa10`. Checkout memuat perubahan dan file baru yang belum masuk commit, termasuk bagian Capsa dan aset JJK yang sudah tayang. Buat checkpoint Git dari file yang ditinjau sebelum mulai mengubah tampilan.
+- Firebase `truf-e3256`, Hosting `main-kartu-game`. Empat game lama masih banyak berada di `truf-multiplayer-v3.html`. Capsa punya engine, host, UI, dan CSS terpisah. Rules RTDB dibuat dengan `node scripts/build-room-rules.cjs`.
+- Pada rilis ikon JJK, 216 tes Node dan 12 tes profil di Firebase emulator lulus. Hosting dan rules profil telah dibaca balik sesudah rilis. Angka ini merupakan bukti rilis tersebut, bukan audit baru semua game.
 
-## Project dan cara melanjutkan
+## Capsa saat ini
 
-- Repo: https://github.com/bebekoding/main-kartu-game
-- Live: https://main-kartu-game.web.app
-- Firebase: `truf-e3256`; Hosting `main-kartu-game`; RTDB region `asia-southeast1`.
-- Vanilla JavaScript, Firebase SDK 10.12.0, tanpa build frontend. HTML utama `truf-multiplayer-v3.html` sekitar 20.232 baris pada baseline ini.
-- URL per game dan room: `/remi`, `/remi/KODE` dan padanannya untuk tiga game lain. Pertahankan `<base href="/">` untuk aset deep link.
-- Modul terpisah sudah menangani membership, lifecycle room, simpan game, leaderboard, profil, jumlah online dan celebration Remi. Tambahan Capsa sebaiknya memakai modul engine terpisah.
-- Rules dihasilkan oleh `scripts/build-room-rules.cjs` beserta policy modul terkait. Perubahan rules harus melalui generator dan pengujian; jangan hanya mengedit hasil akhirnya.
-- Dokumen, pengujian, skrip internal dan direktori tersembunyi dikecualikan dari Hosting.
+- Empat kursi dengan bot otomatis. Pembuka setiap babak memegang 3♦. Arah bergantian setiap babak. Timer 45 detik pada babak 1–2, lalu 30 detik.
+- Satu babak berisi beberapa ronde. Pass berlaku sampai meja dibuka lagi. Bomb adalah empat rank sama dan satu kartu bebas, dengan pilihan mode Reverse jika bomb menang ronde. Kombo lima kartu ditampilkan dalam susunan sesuai jenisnya.
+- Babak berakhir setelah tiga pemain menghabiskan kartu. Poin posisi 1–4 adalah 6, 4, 3, dan 1. Sesi berakhir pada 60 poin atau setelah 15 babak. Sesi lama memakai versi skor yang tersimpan.
+- Kartu terakhir tetap disorot. Sisa kartu peringkat keempat muncul di panel pemiliknya. Scoreboard babak muncul otomatis dan bisa diminimalkan. Semua manusia termasuk host harus Ready sebelum host melanjutkan. Scoreboard akhir mengucapkan selamat kepada juara dan memberi pilihan keluar atau memulai sesi baru dengan kode yang sama.
+- Historis mengelompokkan kartu per ronde. Bot menggunakan daftar nama Remi. Voice tersedia di meja. Kontrol mic dan signaling telah diuji secara lokal; audio antarpemain di perangkat nyata belum tercatat sebagai verifikasi.
 
 ## Perubahan penting sejak handoff V4.3.3
 
@@ -33,10 +27,10 @@ Status: persiapan V4.4, bukan pengumuman rilis game kelima.
 | Leaderboard | Contract 3: roster manusia asli dan matchId tetap, hasil selesai, suara masing-masing manusia, persetujuan bulat, award atomik sekali saja dengan receipt permanen. Penolakan membatalkan award seluruh pemain. |
 | Room kosong | Room biasa tanpa manusia aktif kedaluwarsa setelah 30 detik. Bot dan penonton tidak memperpanjang umur room. Reconnect harus diperiksa sebelum penghapusan. |
 | Penonton Remi | Tombol Keluar Tonton dapat digunakan di atas overlay jeda/hasil/celebration; membersihkan listener, timer, voice, media dan URL. |
-| Simpan game | Seluruh empat game mendukung simpan; satu manusia cukup persetujuannya sendiri, multiplayer harus semua manusia setuju. Request membekukan permainan dan kedaluwarsa dalam 60 detik. |
+| Simpan game | Keempat game awal dan Capsa mendukung simpan; satu manusia cukup persetujuannya sendiri, multiplayer harus semua manusia setuju. Request membekukan permainan dan kedaluwarsa dalam 60 detik. |
 | Lanjutkan game | Kursi dan snapshot tetap; semua manusia asli harus hadir dan menekan Siap lanjut pada percobaan resume yang sama. Tidak ada konversi kursi/host otomatis saat tersimpan. |
 | Retensi simpan | Tujuh hari sejak akses manusia asli; membaca daftar saja, bot dan penonton tidak memperpanjang. Save yang sudah kedaluwarsa tidak boleh dihidupkan kembali. |
-| Profil | Nama 4–16 karakter ASCII keyboard tanpa spasi; huruf, angka, simbol boleh dikombinasikan. Nama tidak wajib unik. Login tidak berubah. Pilihan 16 emblem anime bawaan; tanpa upload bebas. |
+| Profil | Nama 4–16 karakter ASCII keyboard tanpa spasi; huruf, angka, simbol boleh dikombinasikan. Nama tidak wajib unik. Login tidak berubah. Pilihan 30 emblem bawaan, termasuk 14 ikon JJK; tanpa upload bebas. |
 | Jumlah online | Halaman utama dan lobby menampilkan UID unik online lintas tab. Heartbeat 5 detik, kedaluwarsa 30 detik; bot tidak dihitung. Berbeda dari presence manusia di room. |
 
 ### Remi
@@ -57,7 +51,21 @@ Status: persiapan V4.4, bukan pengumuman rilis game kelima.
 4. Persetujuan save mencakup manusia offline. Resume memakai readiness baru per percobaan; callback bot lama tidak boleh hidup kembali melewati save epoch.
 5. Remi yang disimpan ketika jeda tetap membutuhkan penyelesaian mekanisme jeda sesudah resume; timer lokal mulai lagi.
 
-## PR berikutnya — temuan sumber, bukan klaim reproduksi produksi baru
+## Kickoff audit tampilan per game
+
+Ini daftar area yang perlu dilihat, bukan daftar cacat yang sudah dipastikan.
+
+| Game | Fokus audit |
+| --- | --- |
+| Truf | Hierarki bidding dan trump, keterbacaan giliran serta kartu meja, dan alur hasil sesi. |
+| Cangkul | Perbedaan visual antara kartu sendiri, cangkulan, dan kartu meja; kejelasan aksi ambil atau skip. |
+| Remi | Kepadatan tangan, buangan, kombo dan aksi tutup. Periksa papan skor serta celebration agar informasi penutupan mudah terbaca. |
+| Tebak Kartu | Pemilihan target dan kartu, penanda giliran, serta umpan balik setelah tebakan. |
+| Capsa | Jarak dan susunan toolbar, keterbacaan kursi dan kombo, serta konsistensi Historis dan Scoreboard. |
+
+Ambil screenshot baseline desktop dan HP untuk lobby, giliran aktif, dan hasil setiap game. Audit tiap game berdasarkan hierarki informasi, konsistensi tombol, keterbacaan kartu, serta elemen dekoratif yang mengganggu. Mulai dari satu game, buat preview untuk ditinjau, lalu pakai pola yang disetujui untuk game berikutnya. Uji tindakan utama, popup, dan kondisi layar sempit sebelum menerbitkan perubahan.
+
+## Temuan keamanan untuk diverifikasi ulang
 
 Pemeriksaan kode pada 2 November menunjukkan item berikut masih perlu ditangani. Audit lama `AUDIT-2026-10-26.md` tidak boleh dipakai sebagai daftar status terkini karena banyak perbaikannya sudah masuk setelah tanggal tersebut.
 
@@ -72,30 +80,4 @@ Pemeriksaan kode pada 2 November menunjukkan item berikut masih perlu ditangani.
 | Sedang | Pemetaan username login ke email sintetis berpotensi tabrakan hasil normalisasi. | Audit identitas dan migrasi aman; display name baru tidak menyelesaikan masalah ini. |
 | Audit ulang | Pergantian akun lintas tab, pemulihan password, callback resolver bersamaan dan optimasi kombo Remi global. | Reproduksi dahulu; jangan menyatakan seluruhnya bug terkonfirmasi atau sudah selesai. |
 
-Selesaikan pemisahan data kartu dan validasi aksi sebelum menganggap Capsa aman untuk permainan kompetitif.
-
-## Persiapan teknis Capsa
-
-1. Kunci aturan dan contoh pembanding bersama pengguna; simpan versi aturan pada match.
-2. Buat engine murni untuk klasifikasi kombo, perbandingan, legal move, pass, akhir ronde dan skor; uji terpisah dari Firebase/UI.
-3. Gunakan validasi aksi dengan revision/idempotency, UID/kursi/giliran dan konservasi 52 kartu. Jangan menyalin pola update snapshot lama.
-4. Integrasikan auth, host, room lifecycle, bot, profile, online, save/resume dan exit yang sudah ada.
-5. Tambahkan game registry, kapasitas, `/capsa` dan `/capsa/KODE`, Hosting rewrites, game-select, render/start/end, sound, cleanup dan aturan fase save.
-6. Tambahkan policy spesifik; jangan membuka wildcard akses untuk menghemat implementasi. Rules baseline sekitar 253.831 byte, dekat batas 262.144 byte: ukur lagi sebelum menambah ekspresi.
-7. Mulai pengujian tanpa award leaderboard. Integrasi ranking menunggu definisi akhir sesi yang disetujui dan pengujian contract 3.
-8. Uji 4 manusia, manusia+bot, refresh/back, disconnect/host handoff, save/resume, duplicate click, dua tab, mobile serta privasi kartu lewat akses database langsung.
-
-## Bukti verifikasi baseline
-
-Verifikasi rilis terakhir mencatat 125 tes Node, 136 tes rules Python dan 18 skenario integrasi client/emulator; pemeriksaan render dan kecocokan rules/aset produksi lulus pada pekerjaan baseline. Ini catatan verifikasi sebelumnya, bukan audit produksi baru pada pembuatan dokumen ini.
-
-Untuk kode baru: `npm test`, `npm run check:render`, suite rules dengan emulator, pemeriksaan generator dan ukuran rules, lalu verifikasi deployment/rules aktif. Tes lokal saja tidak membuktikan produksi sudah terbarui.
-
-## Dokumen rujukan
-
-- [Host](HOST_POLICY.md), [admin](ADMIN_SECURITY.md), [render](RENDER_SECURITY.md).
-- [Leaderboard](LEADERBOARD_SECURITY.md), [lifecycle room](ROOM_LIFECYCLE.md), [save/resume](SAVED_GAMES.md).
-- [Profil](PLAYER_PROFILES.md), [avatar](PROFILE_AVATARS.md), [online](ONLINE_PLAYERS.md).
-- [Aturan Remi](REMI_RULES.md), [joker](REMI_JOKER.md), [celebration](REMI_CELEBRATION.md).
-
-Dokumen ini tidak mengubah game, rules produksi atau data pemain. Capsa belum diimplementasikan dan V4.4 belum dirilis.
+Capsa memisahkan kartu privat dari ringkasan publik, tetapi host browser mengelola state penuh. Audit arsitektur dan keamanan berjalan terpisah dari pekerjaan tampilan.

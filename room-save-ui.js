@@ -12,7 +12,7 @@
     const id=()=>options.id?options.id():Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');
     const el=(tag,cls,text)=>{const n=doc.createElement(tag);if(cls)n.className=cls;if(text!=null)n.textContent=text;return n;};
     const modal=doc.getElementById('savedGameModal'),list=doc.getElementById('savedGamesListModal');
-    const label={truf:'Truf',remi:'Remi',cangkul:'Cangkul',tebak:'Tebak Kartu'};
+    const label={truf:'Truf',remi:'Remi',cangkul:'Cangkul',tebak:'Tebak Kartu',capsa:'Capsa'};
     const date=t=>new Date(t).toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'});
     const path=()=>`rooms/${room.code}`;
     async function perform(fn,obsolete){

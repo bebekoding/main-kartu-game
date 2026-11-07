@@ -36,9 +36,9 @@ class ProfileSecurity(unittest.TestCase):
         for name in ['abcd ', ' abcde','ab cd','abcd\n','abcd\r','ab\tcd','ab\ncd','abcd\u00a0','ab\u200bcd','ab\x00cd','ab\x7fcd','ab\u202ecd','ab\u2066cd']:
             self.write(self.profile(name))
     def test_only_curated_avatar_ids_are_allowed(self):
-        for icon in ['konoha','uchiha','sharingan','shuriken','strawhat','heart','whitebeard','redhair','scout','garrison','military','cadet','dragonball','flame','blueeye','reaper']:
+        for icon in ['jjk-orbs','jjk-envelope','jjk-spike','jjk-car','jjk-yuji','jjk-swirl','jjk-flame','jjk-shadow','jjk-seal','jjk-wolf','jjk-wave','jjk-nobara','jjk-gojo','jjk-dagger','konoha','uchiha','sharingan','shuriken','strawhat','heart','whitebeard','redhair','scout','garrison','military','cadet','dragonball','flame','blueeye','reaper']:
             self.write(self.profile(icon=icon),allowed=True)
-        for icon in ['other','konoha\n','https://example.com/a.png','../../image','data:image/svg+xml,x','<script>',0,None]:self.write(self.profile(icon=icon))
+        for icon in ['jjk-unknown','other','konoha\n','https://example.com/a.png','../../image','data:image/svg+xml,x','<script>',0,None]:self.write(self.profile(icon=icon))
     def test_unknown_fields_and_missing_required_fields_are_denied(self):
         for field in ['username','authUid','email','isAdmin','password','avatarUrl']:
             self.write({**self.profile(),field:'untrusted'})
