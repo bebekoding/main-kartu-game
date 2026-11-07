@@ -770,31 +770,6 @@
   /* ============ LOG (highlight style used inside log viewer modal) ============ */
   .highlight { color: var(--gold-bright); }
   
-  /* ============ BANNER ============ */
-  .banner {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) scale(0.8);
-    background: linear-gradient(135deg, var(--gold), var(--gold-bright));
-    color: var(--ink);
-    padding: 16px 48px;
-    border-radius: 8px;
-    font-family: 'Cormorant Garamond', serif;
-    font-style: italic;
-    font-weight: 700;
-    font-size: 32px;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
-    z-index: 90;
-    pointer-events: none;
-    opacity: 0;
-    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  .banner.show {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  
   /* RULES BUTTON */
   .rules-btn {
     background: none;
@@ -988,7 +963,6 @@
   </div>
 </div>
 
-<div class="banner" id="banner"></div>
 
 <!-- Log viewer modal (opens from round summary) -->
 <div class="overlay" id="logViewerOverlay">
@@ -1876,31 +1850,6 @@ function chooseBotCard(pid, legal) {
   let currentBest = null;
   if (!isLeader) currentBest = computeWinningCardSoFar();
   
-  // Predict: if I play card c, will I win this trick?
-  function wouldWin(c) {
-    if (isLeader) {
-      // Leader: depends on what others play. Estimate: high non-trump from lead suit
-      // wins unless someone trumps or holds higher in same suit.
-      // We use a heuristic: trump always likely wins; A almost always wins; K usually wins.
-      if (trump && c.suit === trump) return true; // assumes followers may not trump-over
-      if (c.rank === 'A') return true;
-      if (c.rank === 'K') return true;
-      if (c.rank === 'Q') return Math.random() < 0.6;
-      if (c.rank === 'J') return Math.random() < 0.35;
-      return false;
-    }
-    // Follower: check if c beats currentBest AND no remaining player after us is likely to beat us.
-    if (!beats(c, currentBest.card, state.leadSuit, trump)) return false;
-    // Are there players still to play after us? Less certain in that case.
-    const playersAfter = 4 - state.playedThisTrick.length - 1;
-    if (playersAfter === 0) return true; // we're last, definite if we beat current
-    // Estimate: if we played trump high, very likely we still win; otherwise less certain
-    if (trump && c.suit === trump && RANK_VALUE[c.rank] >= 12) return true;
-    if (c.rank === 'A' && c.suit === state.leadSuit) return Math.random() < 0.85;
-    // medium confidence
-    return Math.random() < 0.7;
-  }
-  
   // ============================================
   // MODE: PERFECT or OVERCOMMITTED → AVOID winning at all costs
   // ============================================
@@ -2016,11 +1965,8 @@ function chooseBotCard(pid, legal) {
   } else if (urgency >= 0.4) {
     // Win opportunistically with strong cards (don't waste low trumps on uncertain wins)
     if (winners.length) {
-      // Calculate: is the current best already high? If so, taking it costs more.
-      const bestStrength = cardStrength(currentBest.card, state.leadSuit, trump);
       // If we can win cheaply (winner is not much stronger than what's needed), do it
       const cheapestWin = winners.sort((a,b) => cardStrength(a, state.leadSuit, trump) - cardStrength(b, state.leadSuit, trump))[0];
-      const cost = cardStrength(cheapestWin, state.leadSuit, trump);
       // If cheapest win is a low/mid card, take it. If it requires our highest cards, skip.
       const isCheap = (cheapestWin.suit === state.leadSuit && RANK_VALUE[cheapestWin.rank] <= 11)
                     || (cheapestWin.suit === trump && RANK_VALUE[cheapestWin.rank] <= 10);
@@ -2323,7 +2269,6 @@ function renderHands() {
 function renderCardInnerHTML(c) {
   const isFace = ['J','Q','K','A'].includes(c.rank);
   const centerContent = isFace ? c.rank : SUIT_SYMBOLS[c.suit];
-  const faceClass = isFace ? 'face-card' : '';
   return `
     <div class="card-content">
       <div class="card-tl">
@@ -2405,13 +2350,6 @@ function addLog(html) {
   state.log.push(html);
   // Cap at 500 entries to avoid memory bloat over many sessions
   if (state.log.length > 500) state.log.splice(0, state.log.length - 500);
-}
-
-function showBanner(text) {
-  const el = document.getElementById('banner');
-  el.textContent = text;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 1500);
 }
 
 function closeOverlay(id) {

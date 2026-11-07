@@ -6584,7 +6584,6 @@ const ROOM_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const ROOM_CODE_LENGTH = 4;
 const MAX_PLAYERS = 4;
 // Shared bot names for the room and game views.
-function botNameForSeat(seat) { return BotNames.pool[seat] || `Bot ${seat + 1}`; }
 function pickRandomBotName(takenNicknames) { return BotNames.pick(takenNicknames); }
 // Convenience: kumpulkan nicknames dari room players object.
 function getRoomNicknames(playersObj) {
@@ -6595,7 +6594,6 @@ function getRoomNicknames(playersObj) {
   return names;
 }
 const PRESENCE_HEARTBEAT_MS = 5000;
-const PRESENCE_TIMEOUT_MS = 15000;
 
 // Card constants
 const SUITS = ['S','H','C','D']; // Sekop, Love (Heart), Keriting (Club), Wajik (Diamond)
@@ -6784,7 +6782,6 @@ const Sound = (function () {
   const BGM_BASE = 0.75;     // multiplier applied to the user's bgmVol
   const SFX_MASTER_BASE = 0.85; // synth tones master gain scale
   const CARD_BASE = 0.95;    // cardDrop reference
-  const WIN_BASE = 0.95;     // winFanfare reference
 
   // ---- Web Audio (synthesized small SFX) ----
   let ctx = null, master = null;
@@ -6893,13 +6890,6 @@ const Sound = (function () {
     a.play().catch(() => {});
   }
 
-  // Applause SFX removed per request. The end-of-game music is now handled by
-  // the 'end' BGM mood (Avatar ED). These remain as no-ops so existing call
-  // sites don't need to change and no clapping ever plays.
-  let winAudio = null;
-  function winFanfare() { /* applause removed */ }
-  function stopWin() { /* applause removed */ }
-
   // CEKI declaration SFX (ceki.mp3) — plays 3 times in a row.
   let cekiAudio = null, cekiPlays = 0;
   function cekiFanfare() {
@@ -6984,7 +6974,6 @@ const Sound = (function () {
     try { localStorage.setItem('truf_muted', m ? '1' : '0'); } catch (e) {}
     if (m) {
       Object.values(bgmAudio).forEach(a => { try { a.pause(); } catch (e) {} });
-      stopWin();
       if (master) master.gain.value = 0;
     } else {
       if (master) master.gain.value = SFX_MASTER_BASE * sfxVol;
@@ -7002,7 +6991,6 @@ const Sound = (function () {
     sfxVol = Math.max(0, Math.min(1, v));
     try { localStorage.setItem('truf_sfx_vol', String(sfxVol)); } catch (e) {}
     if (master && !muted) master.gain.value = SFX_MASTER_BASE * sfxVol;
-    if (winAudio) { try { winAudio.volume = WIN_BASE * sfxVol; } catch (e) {} }
     notifySettings();
   }
   function getBgmVol() { return bgmVol; }
@@ -7015,7 +7003,7 @@ const Sound = (function () {
   return {
     cardDrop, cardReveal, chatPop, disconnect, reconnect, botReplace,
     turnBell, turnReminder,
-    modeAtas, modeBawah, winFanfare, stopWin, cekiFanfare, playBgm, setMuted, isMuted, unlock,
+    modeAtas, modeBawah, cekiFanfare, playBgm, setMuted, isMuted, unlock,
     setBgmVol, setSfxVol, getBgmVol, getSfxVol, holdBgm, onSettingsChange,
   };
 })();
@@ -8419,14 +8407,8 @@ function detectScoreEditProposal(room) {
     document.getElementById('scoreApprovalModal').classList.remove('show');
     return;
   }
-  // I'm the proposer → just show a waiting toast (don't show the approval modal to myself)
-  if (prop.by === mySeat) {
-    const approved = humans.filter(p => approvals[p.seat] || approvals[String(p.seat)]);
-    const waiting = humans.filter(p => !(approvals[p.seat] || approvals[String(p.seat)]));
-    const statusEl = document.getElementById('scoreApprovalStatus');
-    // Don't pop modal for self — handled via toast already.
-    return;
-  }
+  // Only the other players see the approval modal.
+  if (prop.by === mySeat) return;
   // Already approved by me? Just wait.
   const myApproved = !!(approvals[mySeat] || approvals[String(mySeat)]);
   // Show approval modal for non-proposers
@@ -8726,7 +8708,6 @@ function desiredBgmMood(room) {
 let _sfxPrev = null;
 function detectSfxEvents(room) {
   const cur = {
-    phase: room.phase || 'lobby',
     bidCount: room.bidding ? countBids(room.bidding.bids) : 0,
     revealed: !!(room.bidding && room.bidding.revealed),
     playedCount: room.play ? ((room.play.currentTrick || []).length) : 0,
@@ -8741,9 +8722,6 @@ function detectSfxEvents(room) {
       if (cur.mode === 'atas') Sound.modeAtas();
       else if (cur.mode === 'bawah') Sound.modeBawah();
     }
-    if (cur.phase === 'tournament_end' && prev.phase !== 'tournament_end') Sound.winFanfare();
-    // Restart chosen → stop the winner SFX
-    if (prev.phase === 'tournament_end' && cur.phase !== 'tournament_end') Sound.stopWin();
   }
   _sfxPrev = cur;
 }
@@ -9585,7 +9563,7 @@ function validateFirebaseConfig() {
   // We can't access the config from window, but we can check if fb works
   if (!fb) return false;
   try {
-    const testRef = fb.ref(fb.db, '_test');
+    fb.ref(fb.db, '_test');
     return true;
   } catch (e) {
     return false;
@@ -10715,7 +10693,6 @@ function handleExitSpectator() {
   });
   setLayoutFloatingVisible(true);
   Sound.playBgm(null);
-  Sound.stopWin();
   if (typeof routerClearRoomUrl === 'function') routerClearRoomUrl(currentGameType || 'remi');
   if (returnToAdmin) {
     // Kembali ke admin panel
@@ -10819,7 +10796,6 @@ function handleForceLeaveRoom() {
   const chatPanel = document.getElementById('chatPanel');
   if (chatPanel) chatPanel.classList.add('hidden');
   Sound.playBgm(null);
-  Sound.stopWin();
   Voice.leave();
   currentRoom = null;
   mySeat = null;
@@ -10859,18 +10835,7 @@ function handleForceLeaveRoom() {
 // Remaining cards = face-down deck. First random player is starter.
 // ============================================================
 function generateCekiDeck() {
-  // Same shape as Cangkul deck: 52 + 4 jokers
-  const deck = [];
-  for (const s of SUITS) for (const r of RANKS) deck.push({ rank: r, suit: s });
-  deck.push({ rank: 'JOKER', suit: null, color: 'red' });
-  deck.push({ rank: 'JOKER', suit: null, color: 'red' });
-  deck.push({ rank: 'JOKER', suit: null, color: 'black' });
-  deck.push({ rank: 'JOKER', suit: null, color: 'black' });
-  for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [deck[i], deck[j]] = [deck[j], deck[i]];
-  }
-  return deck;
+  return generateShuffledDeck(true);
 }
 
 async function handleStartRemi(room) {
@@ -11730,7 +11695,6 @@ function renderRemiGameView(room) {
   // Deck + discard click handlers (null-guarded)
   const deckEl = document.getElementById('remiDeck');
   const discardEl = document.getElementById('remiDiscard');
-  const discardTopEl = document.getElementById('remiDiscardTop');
   // Render last 5 discards stacked horizontally
   const discardStack = document.getElementById('remiDiscardStack');
   if (discardStack) {
@@ -12096,7 +12060,6 @@ function renderRemiGameView(room) {
 
 // Module-level selection state (resets on turn change / draw)
 let remiSelectedIndices = new Set();
-let remiJustDrawnShown = false;
 let _remiGlowTurn = -1; // turnCount when we last applied the glow
 let _remiRankValidNotified = false; // dedup the "rank valid" toast
 let remiCekiExpanded = false; // single CEKI button expands into -1/-2/-3 sub-buttons
@@ -12609,8 +12572,6 @@ function canDeepestFormCombo(deepCard, hand, otherTaken, room, seat) {
   const pickedSet = new Set([deepCard, ...otherTakenArr]);
   const hypothetical = hand.concat(otherTakenArr).concat([deepCard]);
   const minHandInCombo = 2; // rule: ≥2 cards from hand in combo
-  // After laying the deepest's combo there must be ≥1 card left to discard.
-  const leavesDiscardCard = (combo) => combo.cards.length < hypothetical.length;
   // Try pure dasar containing deepCard — enumerate all valid sub-runs (not just
   // the greedy longest) so a shorter run is still found when the longest would
   // leave no card to discard (tutupan scenario).
@@ -13065,7 +13026,6 @@ async function autoDiscardRandomForMe() {
 // State: remi/pause = { by, byName, at, ready: { <seat>: true } }
 // Saat pause: papan grayscale, semua aksi/bot/timer beku.
 // ============================================================
-function isRemiPaused(c) { return !!(c && c.pause); }
 
 async function handleRemiPause() {
   if (!currentRoom || mySeat == null || isSpectator) return;
@@ -13977,7 +13937,6 @@ function inHandJokerJadiValue(jokerCount, dasarCs, pararelCs) {
 // ============================================================
 // REMI modals
 // ============================================================
-let _remiEndApplauseShown = false;
 let _matchCapPopupShown = false; // dedup the ±1000 cap popup per match
 
 // Minimizable popup shown when the match ends via the ±1000 point cap.
@@ -14067,11 +14026,6 @@ function renderRemiEndModal(room) {
   if (room.phase !== 'remi_end') {
     hideRemiOverlay(overlay);
     _remiEndMinimized = false; // reset for the next round-end
-    // Stop applause as soon as we move past the end-round modal
-    if (_remiEndApplauseShown) {
-      try { Sound.stopWin(); } catch (e) {}
-      _remiEndApplauseShown = false;
-    }
     return;
   }
   const c = room.remi || {};
@@ -14166,7 +14120,6 @@ function renderRemiEndModal(room) {
   overlay.style.background = 'transparent';
   // Media saat ada player CLOSE — video celebration untuk semua jenis tutupan.
   if (closedBy != null) {
-    _remiEndApplauseShown = true;
     try { maybeShowRemiCelebration(room); } catch (e) { console.error('close video fail', e); }
   }
   const isHost = room.host === myUid;
@@ -14346,16 +14299,11 @@ function openRemiDiscardLog(room) {
   overlay.onclick = (ev) => { if (ev.target === overlay) { overlay.classList.remove('show'); overlay.style.display = 'none'; } };
 }
 
-let _remiTournamentEndShown = false;
 function renderRemiTournamentEnd(room) {
   const overlay = document.getElementById('remiTournamentEndModal');
   if (!overlay) return;
   if (room.phase !== 'remi_tournament_end') {
     hideRemiOverlay(overlay);
-    if (_remiTournamentEndShown) {
-      try { Sound.stopWin(); } catch (e) {}
-      _remiTournamentEndShown = false;
-    }
     return;
   }
   // Hide round-end modal
@@ -14391,7 +14339,6 @@ function renderRemiTournamentEnd(room) {
   setSafeHTML(body, `<div class="end-section"><div class="end-section-title">Klasemen Akhir</div><div class="standings-table">${rowsHtml}</div></div>` +
     `<div class="standings-loser-msg">${loserMsg}</div>`);
   showRemiOverlay(overlay);
-  if (!_remiTournamentEndShown) { _remiTournamentEndShown = true; try { Sound.winFanfare(); } catch (e) {} }
   const isHost = room.host === myUid;
   const restartBtn = document.getElementById('remiTournamentRestartBtn');
   if (restartBtn) {
@@ -14412,12 +14359,6 @@ async function handleRemiNextRound() {
   console.log('[remi] handleRemiNextRound called, currentRoom:', currentRoom);
   if (_remiNextRoundInProgress) { console.warn('[remi] next round already in progress'); return; }
   if (!currentRoom) { console.warn('[remi] no currentRoom'); return; }
-  // IMMEDIATELY silence applause for the host. Without this, the host
-  // has to wait for the Firebase round-trip → listener fire → render
-  // before stopWin runs (potentially ≥1 second of unwanted applause
-  // bleeding into round 2). Other clients still stop via their listener.
-  try { Sound.stopWin(); } catch (e) {}
-  _remiEndApplauseShown = false;
   _remiNextRoundInProgress = true;
   try {
     const snap = await fb.get(fb.ref(fb.db, 'rooms/' + currentRoom));
@@ -14470,7 +14411,6 @@ async function handleRemiNextRound() {
     resetHostTrackers();
     remiSelectedIndices.clear();
     _remiCekiSeen.clear();
-    _remiEndApplauseShown = false;
     const updates = {};
     updates[`phase`] = 'playing';
     updates[`remi`] = {
@@ -14594,23 +14534,7 @@ async function handleRemiRestart() {
 // Random first player.
 // ============================================================
 function generateCangkulDeck() {
-  const deck = [];
-  for (const s of SUITS) {
-    for (const r of RANKS) deck.push({ rank: r, suit: s });
-  }
-  // Jokers — color encodes which suit-set they can stand for.
-  // RED  joker → covers ♥ ♦ (love & diamond)
-  // BLACK joker → covers ♠ ♣ (spade & club)
-  deck.push({ rank: 'JOKER', suit: null, color: 'red' });
-  deck.push({ rank: 'JOKER', suit: null, color: 'red' });
-  deck.push({ rank: 'JOKER', suit: null, color: 'black' });
-  deck.push({ rank: 'JOKER', suit: null, color: 'black' });
-  // Fisher-Yates shuffle
-  for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [deck[i], deck[j]] = [deck[j], deck[i]];
-  }
-  return deck;
+  return generateShuffledDeck(true);
 }
 
 async function handleStartCangkul(room) {
@@ -14843,9 +14767,16 @@ async function handleStartGame() {
 // ============================================================
 // CARD HELPERS
 // ============================================================
-function generateShuffledDeck() {
+function generateShuffledDeck(includeJokers = false) {
   const deck = [];
   for (const s of SUITS) for (const r of RANKS) deck.push({ rank: r, suit: s });
+  if (includeJokers) {
+    // Cangkul: red covers hearts/diamonds, black covers spades/clubs.
+    deck.push({ rank: 'JOKER', suit: null, color: 'red' });
+    deck.push({ rank: 'JOKER', suit: null, color: 'red' });
+    deck.push({ rank: 'JOKER', suit: null, color: 'black' });
+    deck.push({ rank: 'JOKER', suit: null, color: 'black' });
+  }
   for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]];
@@ -14921,13 +14852,6 @@ function formatBid(b) {
   return `${b.point} ${trump} (${parts})`;
 }
 
-// Bidding turn order: random starting seat, then clockwise (seat 0 → 1 → 2 → 3 → 0)
-function clockwiseFromSeat(startSeat) {
-  const out = [];
-  for (let i = 0; i < MAX_PLAYERS; i++) out.push((startSeat + i) % MAX_PLAYERS);
-  return out;
-}
-
 // ============================================================
 // BIDDING ACTIONS (selection + submit)
 // ============================================================
@@ -14982,14 +14906,6 @@ function populateBidModalGrid(hand) {
     gridEl.appendChild(el);
   });
   applyBidSelectionToDOM();
-}
-
-function getMyHandCards() {
-  if (!currentRoom || mySeat == null) return [];
-  // We don't keep room locally beyond the live snap; the latest hand is read from DOM/state at submit time.
-  // Caller passes room explicitly when needed; this helper reads from the most recent render.
-  // For safety we re-fetch from cached lastRoom in submit.
-  return [];
 }
 
 function updateBidPreviewUI() {
@@ -15732,21 +15648,6 @@ function isCardSafeAcrossRound(myCard, allHands, mySeat, trump) {
   return true;
 }
 
-// Helper: a specific card (rank+suit) is still "in play" if it's in someone's hand
-// OR currently in the trick. The host can see all hands, so this is exact.
-function isCardAlive(rank, suit, allHands, currentTrick) {
-  if (allHands) {
-    for (const seat of Object.keys(allHands)) {
-      const h = allHands[seat] || [];
-      if (h.some(c => c.rank === rank && c.suit === suit)) return true;
-    }
-  }
-  if (currentTrick) {
-    if (currentTrick.some(t => t.card && t.card.rank === rank && t.card.suit === suit)) return true;
-  }
-  return false;
-}
-
 // Helper: any future follower (player who hasn't played yet in this trick) could
 // beat `myCard` given they might be void of leadSuit and have a higher trump,
 // or have a higher card of the relevant suit.
@@ -15801,7 +15702,6 @@ function chooseBotCardHard(params) {
   const remaining = 13 - trickNumber + 1;
   const needed = commitment - tricksWon;
   const isBawah = (gameMode === 'bawah');
-  const isAtas = (gameMode === 'atas');
   // Last-to-act = no future followers → playing a winner is guaranteed safe THIS trick
   const isLastToAct = !isLeader && (currentTrick.length === MAX_PLAYERS - 1);
 
@@ -16981,15 +16881,11 @@ async function handleCangkulEndTournament() {
   } catch (e) { console.error('cangkul end tournament failed', e); }
 }
 
-// Render the final-standings modal. Plays applause via Sound.winFanfare on
-// first transition into this phase (all clients).
-let _cangkulTournamentEndShown = false;
 function renderCangkulTournamentEnd(room) {
   const overlay = document.getElementById('cangkulTournamentEndModal');
   if (!overlay) return;
   if (room.phase !== 'cangkul_tournament_end') {
     overlay.classList.remove('show');
-    _cangkulTournamentEndShown = false;
     return;
   }
   // Hide the session-end modal if it's showing
@@ -17020,11 +16916,6 @@ function renderCangkulTournamentEnd(room) {
     `<div class="end-section-title" style="margin-top:14px;text-align:center;opacity:0.7;">Terima kasih sudah bermain!</div>`);
 
   overlay.classList.add('show');
-  // Play applause SFX once on first transition into this phase
-  if (!_cangkulTournamentEndShown) {
-    _cangkulTournamentEndShown = true;
-    try { Sound.winFanfare(); } catch (e) {}
-  }
   // Restart only for host
   const isHost = room.host === myUid;
   document.getElementById('cangkulTournamentRestartBtn').style.display = isHost ? '' : 'none';
@@ -17881,12 +17772,6 @@ function getTrumpFromRoom(room) {
   const result = room && room.bidResult;
   if (!result) return { trumpSuit: null, noTrump: false };
   return { trumpSuit: result.trumpSuit, noTrump: !!result.noTrump };
-}
-
-function isCardTrump(card, room) {
-  const { trumpSuit, noTrump } = getTrumpFromRoom(room);
-  if (noTrump) return false;
-  return card && card.suit === trumpSuit;
 }
 
 // Validate a candidate card for current play (follow-suit rule).
@@ -19045,13 +18930,7 @@ window.addEventListener('popstate', async (e) => {
 
 // ---------- DECK (52 cards, no jokers) ----------
 function generateTebakDeck() {
-  const deck = [];
-  for (const s of SUITS) for (const r of RANKS) deck.push({ rank: r, suit: s });
-  for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [deck[i], deck[j]] = [deck[j], deck[i]];
-  }
-  return deck;
+  return generateShuffledDeck();
 }
 
 // ---------- VIEW MANAGEMENT ----------

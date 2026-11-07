@@ -5,6 +5,7 @@
  */
 const http=require('node:http'),fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
 const E=require('../capsa-engine.js'),Names=require('../bot-names.js');
+const {move:botMove}=require('../capsa-bot.js');
 const PROJECT='demo-main-kartu-v44',PORT=18844,BASE='http://127.0.0.1:19000',AUTH='http://127.0.0.1:19099';
 const ROOT=path.resolve(__dirname,'..');
 const origins=new Set([`http://127.0.0.1:${PORT}`,`http://localhost:${PORT}`]);
@@ -77,22 +78,6 @@ function apply(root,code,uid,input){
   let s;
   try{s=E.applyAction(item.state,action,Date.now());}catch(e){e.status=/Revisi|sudah habis/.test(e.message)?409:400;throw e;}
   store(root,code,item.record,s);
-}
-function botMove(s){
-  if(s.phase==='round_ready')return {type:'ready'};
-  if(s.phase==='bomb_choice')return {type:'choose_bomb',flip:false};
-  const hand=s.hands[s.turn],moves=[];
-  const consider=cards=>{try{
-    E.classify(cards);if(s.openingRequired&&!cards.some(c=>E.cardKey(c)==='3D'))return;
-    if(s.table&&E.compare(cards,s.table.cards,s.reversed)!==1)return;moves.push(cards);
-  }catch(_){}};
-  if(!s.table||s.table.cards.length===1)hand.forEach(c=>consider([c]));
-  if(!s.table||s.table.cards.length===2)for(let i=0;i<hand.length;i++)for(let j=i+1;j<hand.length;j++)consider([hand[i],hand[j]]);
-  if(!s.table||s.table.cards.length===5){
-    function select(start,chosen){if(chosen.length===5){consider(chosen);return;}for(let i=start;i<=hand.length-(5-chosen.length);i++)select(i+1,chosen.concat(hand[i]));}select(0,[]);
-  }
-  moves.sort((a,b)=>b.length-a.length||(E.compare(a,b,s.reversed)||0));
-  return moves.length?{type:'play',cards:moves[0]}:{type:'pass'};
 }
 async function drive(){
   await transact(root=>{
